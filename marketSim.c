@@ -7,11 +7,11 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <stdlib.h>	
-#include <time.h>	
+#include <stdlib.h>
+#include <time.h>
 #include <sys/time.h>
 #include <string.h>
-#include <unistd.h>		
+#include <unistd.h>
 #include <pthread.h>
 
 #define QUEUESIZE 5000
@@ -63,9 +63,9 @@ int main() {
 
   pthread_t prod, cons;
   queue *q = queueInit();
-  
+
   pthread_mutex_init(&mut, NULL);
-  
+
   pthread_create(&prod, NULL, Prod, q);
   pthread_create(&cons, NULL, Cons, q);
 
@@ -80,7 +80,7 @@ int main() {
 void *Prod (void *arg){
   queue *q = (queue *) arg;
   int i;
-  
+
   // for (i=0; i<QUEUESIZE; i++){
   while (1) {
     pthread_mutex_lock (q->mut);
@@ -99,7 +99,7 @@ void *Cons (void *arg){
   queue *q = (queue *) arg;
   int i;
   order ord;
-  
+
   //for (i=0; i<QUEUESIZE; i++){
   while (1) {
     pthread_mutex_lock (q->mut);
@@ -122,9 +122,9 @@ void *Cons (void *arg){
 // ****************************************************************
 order makeOrder(){
 
-  static count = 0;
+  static int count = 0;
 
-  int magnitude = 10; 
+  int magnitude = 10;
   int waitmsec;
 
   order ord;
@@ -132,7 +132,7 @@ order makeOrder(){
   // wait for a random amount of time in useconds
   waitmsec = ((double)rand()/(double)RAND_MAX * magnitude);
   usleep(waitmsec*1000);
-  
+
   ord.id = count++;
   ord.timestamp = getTimestamp();
 
@@ -141,7 +141,7 @@ order makeOrder(){
 
   // Order type
   double u2 = ((double)rand()/(double)RAND_MAX);
-  if (u2 < 0.2){ 
+  if (u2 < 0.2){
     ord.type = 'M';                 // Market order
     ord.vol = (1 + rand()%50)*100;
 
@@ -149,7 +149,7 @@ order makeOrder(){
     ord.type = 'L';                 // Limit order
     ord.vol = (1 + rand()%50)*100;
     ord.price1 = currentPriceX10 + 10*(0.5 -((double)rand()/(double)RAND_MAX));
-    
+
   }else if (0.4 <= u2 && u2 < 0.6){
     ord.type = 'S';                 // Stop order
     ord.vol = (1 + rand()%50)*100;
@@ -168,7 +168,7 @@ order makeOrder(){
 
   // dispOrder(ord);
 
-  return (ord); 
+  return (ord);
 }
 
 // ****************************************************************
@@ -184,7 +184,7 @@ inline long getTimestamp(){
 void dispOrder(order ord){
 
   printf("%08d ", ord.id);
-  printf("%08d ", ord.timestamp);  
+  printf("%08d ", ord.timestamp);
   switch( ord.type ) {
   case 'M':
     printf("%c ", ord.action);
@@ -197,7 +197,7 @@ void dispOrder(order ord){
     printf("Stop   (%4d,%5.1f) ", ord.vol, (float) ord.price1/10.0); break;
   case 'T':
     printf("%c ", ord.action);
-    printf("StopLim(%4d,%5.1f,%5.1f) ", 
+    printf("StopLim(%4d,%5.1f,%5.1f) ",
 	   ord.vol, (float) ord.price1/10.0, (float) ord.price2/10.0); break;
   case 'C':
     printf("* Cancel  %6d        ", ord.oldid); break;
@@ -225,7 +225,7 @@ queue *queueInit (void)
   pthread_cond_init (q->notFull, NULL);
   q->notEmpty = (pthread_cond_t *) malloc (sizeof (pthread_cond_t));
   pthread_cond_init (q->notEmpty, NULL);
-	
+
   return (q);
 }
 
@@ -233,7 +233,7 @@ queue *queueInit (void)
 void queueDelete (queue *q)
 {
   pthread_mutex_destroy (q->mut);
-  free (q->mut);	
+  free (q->mut);
   pthread_cond_destroy (q->notFull);
   free (q->notFull);
   pthread_cond_destroy (q->notEmpty);
