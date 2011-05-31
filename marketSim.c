@@ -15,6 +15,12 @@
 #include <pthread.h>
 #include "marketSim.h"
 
+
+//*****************************************************************
+struct timeval startwtime, endwtime;
+
+pthread_mutex_t mut;
+
 // ****************************************************************
 int main() {
 

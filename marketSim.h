@@ -33,12 +33,6 @@ void dispOrder(order ord);
 
 int currentPriceX10 = 1000;
 
-struct timeval startwtime, endwtime;
-
-pthread_mutex_t mut;
-
-
-
 queue *queueInit (void);
 
 void queueDelete (queue *q);
