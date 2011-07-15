@@ -1,7 +1,7 @@
 #ifndef MARKET_SIM_H
 #define MARKET_SIM_H
 
-
+#include <pthread.h>
 
 #define QUEUESIZE 5000
 
@@ -25,13 +25,15 @@ void *Prod (void *q);
 
 void *Cons (void *q);
 
+void inputConsumer(queue *q);
+
 order makeOrder();
 
 inline long getTimestamp();
 
 void dispOrder(order ord);
 
-int currentPriceX10 = 1000;
+int currentPriceX10;
 
 queue *queueInit (void);
 
