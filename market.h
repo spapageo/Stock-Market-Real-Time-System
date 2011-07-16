@@ -8,7 +8,7 @@ void *marketWorker(void *arg);
 
 void mQueueAdd(queue *q,order arg);
 void mQueueDelete(queue *q,order *arg);
-order *mQueuegetOrder(queue *q);
+order *mQGetFirstOrder(queue *q);
 void mPairDelete();
 
 #endif
