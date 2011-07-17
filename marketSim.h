@@ -63,9 +63,9 @@ void queueAdd (queue *q, order ord);
 
 void queueDel (queue *q, order *ord);
 
-int llistAdd (llist *l, order ord, order_t *after);
+void llistAdd (llist *l, order ord, order_t *after);
 
-int llistDel ( llist *l, order* ord);
+void llistDel ( llist *l, order* ord);
 
 order_t *llistInsert( llist *l, order ord);
 

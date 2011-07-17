@@ -45,10 +45,12 @@ int main()
 	// Initialize the buy and sell limit lists
 	lsl = llistInit(ASC);
 	lbl = llistInit(DESC);
-
+	
+	// Laucnch all the appropriate threads
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&market, NULL, marketWorker, q);
+	
 	// I actually do not expect them to ever terminate
 	pthread_join(prod, NULL);
 	pthread_join(cons, NULL);
@@ -97,43 +99,21 @@ void *Cons (void *arg) {
 				mQueueAdd(msq,ord);
 			else
 				mQueueAdd(mbq,ord);
+		} else if (ord.type == 'L') {
+			if(ord.action == 'S'){
+				dispOrder(ord);
+				fflush(stdout);
+				lSafeAdd(lsl,ord);
+			} else
+				lSafeAdd(lbl,ord);
 		}
-
-		//printf ("Processing at time %8d : ", getTimestamp());
 		//dispOrder(ord);
 		//fflush(stdout);
+		//printf ("Processing at time %8d : ", getTimestamp());
+
 
 	}
 }
-
-// ****************************************************************
-void inputConsumer(queue *q){
-	pthread_mutex_lock (q->mut);
-	order ord;
-	while (q->empty) {
-		printf ("*** Incoming Order Queue is EMPTY.\n");
-		fflush(stdout);
-		pthread_cond_wait (q->notEmpty, q->mut);
-	}
-	queueDel (q, &ord);
-
-	
-	pthread_mutex_unlock (q->mut);
-	pthread_cond_signal (q->notFull);
-	
-	// Process that order!
-	if (ord.type == 'M') {
-		if(ord.action == 'S')
-			mQueueAdd(msq,ord);
-		else
-			mQueueAdd(mbq,ord);
-	}
-	
-// 	printf ("Processing at time %8d : ", getTimestamp());
-// 	dispOrder(ord);
-// 	fflush(stdout);
-}
-
 
 // ****************************************************************
 order makeOrder() {
@@ -252,8 +232,7 @@ queue *queueInit (void)
 }
 
 // ****************************************************************
-void queueDelete (queue *q)
-{
+void queueDelete (queue *q) {
 	pthread_mutex_destroy (q->mut);
 	free (q->mut);
 	pthread_cond_destroy (q->notFull);
@@ -293,48 +272,37 @@ void queueDel (queue *q, order *out)
 }
 
 //***************************************************************
-int llistAdd(llist *l,order o,order_t *after){
-	if (l->size < l->MAX_SIZE){
-		if(l->empty == 1){
-			l->empty = 0;
-		} else if (l->size == l->MAX_SIZE - 1){
-			l->full = 1;
-		}
-		order_t *ord = malloc(sizeof(order_t));
-		ord->ord = o;
-		l->size += 1;
-		
-		if(after != NULL){
-			ord->next = after->next;
-			after->next = ord;
-		} else {
-			ord->next = l->HEAD;
-			l->HEAD = ord;
-		}
-
-		return 1;
+void llistAdd(llist *l,order o,order_t *after){
+	if(l->empty == 1){
+		l->empty = 0;
+	} else if (l->size == l->MAX_SIZE - 1){
+		l->full = 1;
+	}
+	order_t *ord = malloc(sizeof(order_t));
+	ord->ord = o;
+	l->size += 1;
+	
+	if(after != NULL){
+		ord->next = after->next;
+		after->next = ord;
 	} else {
-		return 0;
+		ord->next = l->HEAD;
+		l->HEAD = ord;
 	}
 }
 
 //***************************************************************
-int llistDel(llist *l,order *o){
-	if (l->size != 0){
-		if(l->size == 1){
-			l->empty = 1;
-		} else if (l->size == l->MAX_SIZE) {
-			l->full = 0;
-		}
-		l->size -= 1;
-		order_t *ord = l->HEAD;
-		l->HEAD = ord->next;
-		*o = ord->ord;
-		free(ord);
-		return 1;
-	} else {
-		return 0;
+void llistDel(llist *l,order *o){
+	if(l->size == 1){
+		l->empty = 1;
+	} else if (l->size == l->MAX_SIZE) {
+		l->full = 0;
 	}
+	l->size -= 1;
+	order_t *ord = l->HEAD;
+	l->HEAD = ord->next;
+	*o = ord->ord;
+	free(ord);
 }
 
 //***************************************************************
@@ -379,5 +347,4 @@ order_t *llistInsert( llist *l, order ord){
 		}
 	}
 	return lo;
-	
 }
