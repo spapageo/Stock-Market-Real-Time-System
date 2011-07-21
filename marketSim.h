@@ -2,8 +2,9 @@
 #define MARKET_SIM_H
 
 #include <pthread.h>
+#include <stdio.h>
 
-#define QUEUESIZE 5000
+#define QUEUESIZE 15000
 
 #define ASC 101
 
@@ -41,6 +42,12 @@ typedef struct {
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
 
+int currentPriceX10;
+
+pthread_mutex_t *price_mut;
+
+FILE *log_file;
+
 void *Prod (void *q);
 
 void *Cons (void *q);
@@ -49,11 +56,9 @@ void inputConsumer(queue *q);
 
 order makeOrder();
 
-inline long getTimestamp();
+long getTimestamp();
 
 void dispOrder(order ord);
-
-int currentPriceX10;
 
 queue *queueInit (void);
 

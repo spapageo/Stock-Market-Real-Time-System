@@ -6,9 +6,10 @@ queue *mbq;
 
 void *marketWorker(void *arg);
 
-void mQueueAdd(queue *q,order arg);
-void mQueueDelete(queue *q,order *arg);
-order *mQGetFirstOrder(queue *q);
-void mPairDelete();
+void qSafeAdd(queue *q,order arg);
+void qSafeDelete(queue *q,order *arg);
+order *qGetFirst(queue *q);
+void qqPairDelete();
+void qlPairDelete(queue *q, llist *l);
 
 #endif
