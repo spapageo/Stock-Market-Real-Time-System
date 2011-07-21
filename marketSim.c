@@ -9,9 +9,14 @@
 #include "stop.h"
 #include "stoplimit.h"
 
-
 //*****************************************************************
 struct timeval startwtime, endwtime;
+
+int currentPriceX10;
+
+pthread_mutex_t *price_mut;
+
+FILE *log_file;
 
 // ****************************************************************
 int main() {
@@ -31,7 +36,7 @@ int main() {
 	// start the time for timestamps
 	gettimeofday (&startwtime, NULL);
 
-	pthread_t prod, cons, cons2, market, limit;
+	pthread_t prod, cons, cons2, market, lim_thread;
 	// Initialize the incoming order queue
 	queue *q = queueInit();
 	
@@ -51,21 +56,22 @@ int main() {
 	tsl = llistInit(ASC);
 	tbl = llistInit(DESC);
 
+	printf("\n\n");
+	
 	// Laucnch all the appropriate threads
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
-	pthread_create(&limit, NULL, limitWorker, q);
+	pthread_create(&lim_thread, NULL, limitWorker, q);
 	pthread_create(&market, NULL, marketWorker, q);
 	
 	
 	// I actually do not expect them to ever terminate
-	pthread_join(limit, NULL);
 	pthread_join(prod, NULL);
 	pthread_join(cons, NULL);
 	pthread_join(cons2, NULL);
 	pthread_join(market, NULL);
-	
+	pthread_join(lim_thread, NULL);
 
 	pthread_exit(NULL);
 }
@@ -73,18 +79,18 @@ int main() {
 // ****************************************************************
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
-// 	int size;
+	int size;
 	while (1) {
 		pthread_mutex_lock (q->mut);
-// 		if(q->tail < q->head){
-// 			size = QUEUESIZE - q->head +q->tail;
-// 		} else {
-// 			size = q->tail - q->head;
-// 		}
-// 		fputs("\033[A\033[2K",stdout);
-// 		rewind(stdout);
-// 		ftruncate(1,0);
-// 		printf("**** %05d ****\n",size);fflush(stdout);
+		if(q->tail < q->head){
+			size = QUEUESIZE - q->head +q->tail;
+		} else {
+			size = q->tail - q->head;
+		}
+		fputs("\033[A\033[2K",stdout);
+		rewind(stdout);
+		ftruncate(1,0);
+		printf("**** %05d ****\n",size);fflush(stdout);
 		while (q->full) {
 			printf("Incoming order queue is FULL\n");
 			fflush(stdout);
@@ -94,6 +100,7 @@ void *Prod (void *arg) {
 		pthread_cond_signal (q->notEmpty);
 		pthread_mutex_unlock (q->mut);
 	}
+	return NULL;
 }
 
 // ****************************************************************

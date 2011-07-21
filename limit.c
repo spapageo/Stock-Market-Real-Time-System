@@ -1,5 +1,11 @@
 #include "marketSim.h"
 #include "limit.h"
+//*********************************************************
+llist *lsl;
+llist *lbl;
+
+//*********************************************************
+
 
 void *limitWorker(void *arg){
 	while(1){

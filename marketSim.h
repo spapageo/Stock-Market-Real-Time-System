@@ -42,11 +42,11 @@ typedef struct {
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
 
-int currentPriceX10;
+extern int currentPriceX10;
 
-pthread_mutex_t *price_mut;
+extern pthread_mutex_t *price_mut;
 
-FILE *log_file;
+extern FILE *log_file;
 
 void *Prod (void *q);
 

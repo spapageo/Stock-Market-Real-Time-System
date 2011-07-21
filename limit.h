@@ -1,8 +1,8 @@
 #ifndef LIMIT_H
 #define LIMIT_H
 
-llist *lsl;
-llist *lbl;
+extern llist *lsl;
+extern llist *lbl;
 
 void lSafeAdd(llist *l,order ord);
 void lSafeDelete(llist *l,order *ord);
