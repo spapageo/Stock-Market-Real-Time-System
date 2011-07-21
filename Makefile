@@ -14,4 +14,4 @@ profile: marketSim.c market.c stop.c limit.c marketSim.h market.h stop.h limit.h
 	gcc -Wall -pg marketSim.c limit.c market.c stop.c -lpthread -o marketSim
 
 clean:
-	rm -rf marketSim marketSim.exe logfile.txt
+	rm -rf marketSim marketSim.exe logfile.txt *~
