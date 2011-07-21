@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
-#include <string.h>
 #include <unistd.h>
 #include "marketSim.h"
 #include "market.h"
@@ -32,8 +31,7 @@ int main() {
 	// start the time for timestamps
 	gettimeofday (&startwtime, NULL);
 
-	pthread_t prod, cons, cons2, market;
-	
+	pthread_t prod, cons, cons2, market, limit;
 	// Initialize the incoming order queue
 	queue *q = queueInit();
 	
@@ -53,18 +51,21 @@ int main() {
 	tsl = llistInit(ASC);
 	tbl = llistInit(DESC);
 
-	printf("Initializing Submodules\nIncoming order queue size:\n\n");
 	// Laucnch all the appropriate threads
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
+	pthread_create(&limit, NULL, limitWorker, q);
 	pthread_create(&market, NULL, marketWorker, q);
 	
+	
 	// I actually do not expect them to ever terminate
+	pthread_join(limit, NULL);
 	pthread_join(prod, NULL);
 	pthread_join(cons, NULL);
 	pthread_join(cons2, NULL);
 	pthread_join(market, NULL);
+	
 
 	pthread_exit(NULL);
 }
@@ -72,18 +73,18 @@ int main() {
 // ****************************************************************
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
-	int size;
+// 	int size;
 	while (1) {
 		pthread_mutex_lock (q->mut);
-		if(q->tail < q->head){
-			size = QUEUESIZE - q->head +q->tail;
-		} else {
-			size = q->tail - q->head;
-		}
-		fputs("\033[A\033[2K",stdout);
-		rewind(stdout);
-		ftruncate(1,0);
-		printf("**** %05d ****\n",size);fflush(stdout);
+// 		if(q->tail < q->head){
+// 			size = QUEUESIZE - q->head +q->tail;
+// 		} else {
+// 			size = q->tail - q->head;
+// 		}
+// 		fputs("\033[A\033[2K",stdout);
+// 		rewind(stdout);
+// 		ftruncate(1,0);
+// 		printf("**** %05d ****\n",size);fflush(stdout);
 		while (q->full) {
 			printf("Incoming order queue is FULL\n");
 			fflush(stdout);
@@ -312,6 +313,7 @@ void llistAdd(llist *l,order o,order_t *after){
 		l->full = 1;
 	}
 	order_t *ord = malloc(sizeof(order_t));
+	if(ord==NULL){printf("Malloc error\n");fflush(stdout);exit(1);}
 	ord->ord = o;
 	l->size += 1;
 	
