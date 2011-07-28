@@ -1,7 +1,7 @@
 #ifndef STOPLIMIT_H
 #define STOPLIMIT_H
 
-llist *tsl;
-llist *tbl;
+extern llist *tsl;
+extern llist *tbl;
 
 #endif

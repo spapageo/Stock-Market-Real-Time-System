@@ -1,7 +1,7 @@
 #ifndef STOP_H
 
 #define STOP_H
-llist *ssl;
-llist *sbl;
+extern llist *ssl;
+extern llist *sbl;
 
 #endif

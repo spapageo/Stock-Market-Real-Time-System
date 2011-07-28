@@ -22,7 +22,7 @@ FILE *log_file;
 int main() {
 
 	// reset number generator seed
-	// srand(time(NULL) + getpid());
+	//srand(time(NULL) + getpid());
 	srand(0); // to get the same sequence
 	
 	//initialize the price and its mutex
@@ -97,7 +97,7 @@ void *Prod (void *arg) {
 			pthread_cond_wait (q->notFull, q->mut);
 		}
 		queueAdd (q, makeOrder());
-		pthread_cond_signal (q->notEmpty);
+		pthread_cond_broadcast (q->notEmpty);
 		pthread_mutex_unlock (q->mut);
 	}
 	return NULL;
