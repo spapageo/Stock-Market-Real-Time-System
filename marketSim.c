@@ -119,7 +119,7 @@ void *Cons (void *arg) {
 		}
 		queueDel (q, &ord);
 
-		pthread_cond_signal (q->notFull);
+		pthread_cond_broadcast(q->notFull);
 		pthread_mutex_unlock (q->mut);
 		
 		// YOUR CODE IS CALLED FROM HERE
@@ -159,7 +159,6 @@ void *Cons (void *arg) {
 order makeOrder() {
 
 	static int count = 0;
-
 	int magnitude = 10;
 	int waitmsec;
 

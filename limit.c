@@ -26,7 +26,6 @@ void *limitWorker(void *arg){
  			}
  		}
 
-
  		if (!mbq->empty && switch2 == 1){
  			if(o2.price1 <= currentPriceX10){
  				qlPairDelete( mbq, lsl );
@@ -58,38 +57,6 @@ void lSafeAdd(llist *l,order ord) {
 	order_t *o = llistInsertHere(l,ord);
 	llistAdd(l,ord,o);
 	pthread_cond_broadcast(l->notEmpty);
-
-// 	/*
-// 	 * Check if the new order is added to the head of the list. If so, depending on the type of the order and
-// 	 * on its relational place to the current price, broadcast
-// 	 */
-// 	if(o==NULL){
-// 		if(ord.type == 'L'){
-// 			if(l->signal_type == ABV && currentPriceX10 >= ord.price1 && l->price_above == 0){
-// 				l->price_above = 1;
-// 				pthread_cond_broadcast(l->notBelow);
-// 			} else if (l->signal_type == BLW && currentPriceX10 <= ord.price1 && l->price_below == 0){
-// 				l->price_below = 1;
-// 				pthread_cond_broadcast(l->notAbove);
-// 			}
-// 		} else {
-// 			if(l->empty == 0){
-// 				if(l->signal_type == ABV && currentPriceX10 < ord.price1 && l->price_above == 1){
-// 					l->price_above = 0;
-// 				} else if (l->signal_type == BLW && currentPriceX10 > ord.price1 && l->price_below == 1){
-// 					l->price_below = 0;
-// 				}
-// 			} else {
-// 				if(l->signal_type == ABV && currentPriceX10 >= ord.price1 && l->price_above == 0){
-// 					l->price_above = 1;
-// 					pthread_cond_broadcast(l->notBelow);
-// 				} else if (l->signal_type == BLW && currentPriceX10 <= ord.price1 && l->price_below == 0){
-// 					l->price_below = 1;
-// 					pthread_cond_broadcast(l->notAbove);
-// 				}
-// 			}
-// 		}
-// 	}
 
 	/* Unlock the list mutex and return */
 	pthread_mutex_unlock(l->mut);
