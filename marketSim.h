@@ -4,11 +4,15 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define QUEUESIZE 15000
+#define QUEUESIZE 5000
 
 #define ASC 101
 
 #define DESC 100
+
+#define ABV 111
+
+#define BLW 110
 
 typedef struct {
 	long id,oldid;
@@ -28,10 +32,9 @@ typedef struct {
 	order_t *HEAD;
 	unsigned int size;
 	unsigned int MAX_SIZE;
-	int shorting;
-	int full, empty;
+	int shorting, full, empty, price_above, price_below, signal_type;
 	pthread_mutex_t *mut;
-	pthread_cond_t *notFull, *notEmpty;
+	pthread_cond_t *notFull, *notEmpty, *notAbove, *notBelow;
 } llist;
 
 typedef struct {
@@ -45,6 +48,8 @@ typedef struct {
 extern int currentPriceX10;
 
 extern pthread_mutex_t *price_mut;
+
+extern pthread_cond_t *cur_price_changed;
 
 extern FILE *log_file;
 
@@ -72,8 +77,8 @@ void llistAdd (llist *l, order ord, order_t *after);
 
 void llistDel ( llist *l, order* ord);
 
-order_t *llistInsert( llist *l, order ord);
+order_t *llistInsertHere( llist *l, order ord);
 
-llist *llistInit(int shorting);
+llist *llistInit(int shorting,int singal_type);
 
 #endif

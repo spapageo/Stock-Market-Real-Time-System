@@ -8,6 +8,6 @@ void lSafeAdd(llist *l,order ord);
 void lSafeDelete(llist *l,order *ord);
 void llPairDelete(llist *sl, llist *bl);
 void *limitWorker(void *arg);
-order *lGetHead(llist *l);
+int lGetHead(llist *l,order *o);
 
 #endif

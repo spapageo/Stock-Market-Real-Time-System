@@ -16,16 +16,18 @@ int currentPriceX10;
 
 pthread_mutex_t *price_mut;
 
+pthread_cond_t *cur_price_changed;
+
 FILE *log_file;
 
 // ****************************************************************
 int main() {
 
 	// reset number generator seed
-	//srand(time(NULL) + getpid());
-	srand(0); // to get the same sequence
+	srand(time(NULL) + getpid());
+	//srand(0); // to get the same sequence
 	
-	//initialize the price and its mutex
+	//initialize the price, it's mutex, and it's condition variable
 	currentPriceX10 = 1000;
 	price_mut = malloc (sizeof(pthread_mutex_t));
 	pthread_mutex_init(price_mut,NULL);
@@ -36,7 +38,9 @@ int main() {
 	// start the time for timestamps
 	gettimeofday (&startwtime, NULL);
 
+	//Create all the thread variables
 	pthread_t prod, cons, cons2, market, lim_thread;
+	
 	// Initialize the incoming order queue
 	queue *q = queueInit();
 	
@@ -45,20 +49,20 @@ int main() {
 	mbq = queueInit();
 
 	// Initialize the buy and sell limit order lists
-	lsl = llistInit(ASC);
-	lbl = llistInit(DESC);
+	lsl = llistInit(ASC,ABV);
+	lbl = llistInit(DESC,BLW);
 	
 	// Initialize the buy and sell stop order lists
-	ssl = llistInit(ASC);
-	sbl = llistInit(DESC);
+	ssl = llistInit(ASC,BLW);
+	sbl = llistInit(DESC,ABV);
 
 	// Initialize the buy and sell stop limit order lists
-	tsl = llistInit(ASC);
-	tbl = llistInit(DESC);
+	tsl = llistInit(ASC,BLW);
+	tbl = llistInit(DESC,ABV);
 
 	printf("\n\n");
 	
-	// Laucnch all the appropriate threads
+	// Create and laucnch all the appropriate threads
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
@@ -90,7 +94,7 @@ void *Prod (void *arg) {
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
 		ftruncate(1,0);
-		printf("**** %05d ****\n",size);fflush(stdout);
+		printf("**** %05d **** %05d **** %05d ****\n",size,lsl->size,lbl->size);fflush(stdout);
 		while (q->full) {
 			printf("Incoming order queue is FULL\n");
 			fflush(stdout);
@@ -250,7 +254,6 @@ void dispOrder(order ord) {
 }
 
 // ****************************************************************
-// ****************************************************************
 queue *queueInit (void)
 {
 	queue *q;
@@ -348,26 +351,35 @@ void llistDel(llist *l,order *o){
 }
 
 //***************************************************************
-llist *llistInit(int shorting){
+llist *llistInit(int shorting,int singal_type){
 	llist *l = malloc(sizeof(llist));
 	if (l == NULL) return (NULL);
 	l->HEAD = NULL;
 	l->MAX_SIZE = QUEUESIZE;
 	l->size=0;
 	l->shorting = shorting;
+	l->signal_type = singal_type;
 	l->empty = 1;
 	l->full = 0;
+	l->price_above = 0;
+	l->price_below = 0;
+	
 	l->mut = malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(l->mut,NULL);
 	l->notEmpty = malloc(sizeof(pthread_cond_t));
 	pthread_cond_init(l->notEmpty,NULL);
 	l->notFull = malloc(sizeof(pthread_cond_t));
 	pthread_cond_init(l->notFull,NULL);
+	l->notAbove = malloc(sizeof(pthread_attr_t));
+	pthread_cond_init(l->notAbove,NULL);
+	l->notBelow = malloc(sizeof(pthread_attr_t));
+	pthread_cond_init(l->notBelow,NULL);
+	
 	return l;
 }
 
 //****************************************************************
-order_t *llistInsert( llist *l, order ord){
+order_t *llistInsertHere( llist *l, order ord){
 	int i,value = ord.price1;
 	if ( l->size == 0 ){
 		return NULL;

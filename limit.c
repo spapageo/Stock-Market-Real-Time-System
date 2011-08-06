@@ -1,5 +1,6 @@
 #include "marketSim.h"
 #include "limit.h"
+#include "market.h"
 //*********************************************************
 llist *lsl;
 llist *lbl;
@@ -8,24 +9,90 @@ llist *lbl;
 
 
 void *limitWorker(void *arg){
-	while(1){
-		llPairDelete(lsl,lbl);
+	int none=0;
+	order o1,o2;
+	o1.price1 = 100;
+	o2.price1 = 100;
+	int switch1,switch2;
+	while (1) {
+		none = 0;
+		switch1 = lGetHead(lbl,&o1);
+		switch2 = lGetHead(lsl,&o2);
+		
+ 		if (switch1 == 1 && !msq->empty){
+ 			if(o1.price1 >= currentPriceX10){
+ 				qlPairDelete( msq, lbl );
+ 				none=1;
+ 			}
+ 		}
+
+
+ 		if (!mbq->empty && switch2 == 1){
+ 			if(o2.price1 <= currentPriceX10){
+ 				qlPairDelete( mbq, lsl );
+ 				none=1;
+ 			}
+ 		}
+		
+		if((switch2 == 1) && (switch1 == 1) && none == 0){
+			if ((currentPriceX10 >= o2.price1) && (currentPriceX10 <= o1.price1)) {
+				llPairDelete(lsl,lbl);
+			}
+		}
 	}
 	return NULL;
 }
 
 
 void lSafeAdd(llist *l,order ord) {
+	/* Lock the list mutex */
 	pthread_mutex_lock(l->mut);
+
+	/* Check if the list is full. If so, wait on the notFull condition variable */
 	while(l->full){
-		printf("*** Incoming List is Full ***");
-		fflush(stdout);
+		printf("*** Incoming List is Full ***");fflush(stdout);
 		pthread_cond_wait(l->notFull,l->mut);
 	}
-	llistAdd(l,ord,llistInsert(l,ord));
+
+	/* Find where to insert the new order, and perform the insertion */
+	order_t *o = llistInsertHere(l,ord);
+	llistAdd(l,ord,o);
 	pthread_cond_broadcast(l->notEmpty);
+
+// 	/*
+// 	 * Check if the new order is added to the head of the list. If so, depending on the type of the order and
+// 	 * on its relational place to the current price, broadcast
+// 	 */
+// 	if(o==NULL){
+// 		if(ord.type == 'L'){
+// 			if(l->signal_type == ABV && currentPriceX10 >= ord.price1 && l->price_above == 0){
+// 				l->price_above = 1;
+// 				pthread_cond_broadcast(l->notBelow);
+// 			} else if (l->signal_type == BLW && currentPriceX10 <= ord.price1 && l->price_below == 0){
+// 				l->price_below = 1;
+// 				pthread_cond_broadcast(l->notAbove);
+// 			}
+// 		} else {
+// 			if(l->empty == 0){
+// 				if(l->signal_type == ABV && currentPriceX10 < ord.price1 && l->price_above == 1){
+// 					l->price_above = 0;
+// 				} else if (l->signal_type == BLW && currentPriceX10 > ord.price1 && l->price_below == 1){
+// 					l->price_below = 0;
+// 				}
+// 			} else {
+// 				if(l->signal_type == ABV && currentPriceX10 >= ord.price1 && l->price_above == 0){
+// 					l->price_above = 1;
+// 					pthread_cond_broadcast(l->notBelow);
+// 				} else if (l->signal_type == BLW && currentPriceX10 <= ord.price1 && l->price_below == 0){
+// 					l->price_below = 1;
+// 					pthread_cond_broadcast(l->notAbove);
+// 				}
+// 			}
+// 		}
+// 	}
+
+	/* Unlock the list mutex and return */
 	pthread_mutex_unlock(l->mut);
-	
 }
 
 
@@ -36,69 +103,67 @@ void lSafeDelete(llist *l,order *ord) {
 	}
 	llistDel(l,ord);
 	pthread_cond_broadcast(l->notFull);
+	
 	pthread_mutex_unlock(l->mut);
 }
 
 
-order* lGetHead(llist *l) {
-	return &(l->HEAD->ord);
+int lGetHead(llist *l, order *o) {
+	if(l->HEAD == NULL){
+		return -1;
+	} else {
+		*o = l->HEAD->ord;
+		return 1;
+	}
 }
 
 void llPairDelete(llist *sl, llist *bl){
+
 	// Lock both list
 	pthread_mutex_lock(sl->mut);
 	pthread_mutex_lock(bl->mut);
-	
-	
-	//Check if a pair of market orders is available
-	while ((sl->empty) || (bl->empty)) {
-		
-		if(sl->empty){
-			pthread_mutex_unlock(bl->mut);
-			pthread_cond_wait(sl->notEmpty,sl->mut);
-			pthread_mutex_lock(bl->mut);
-		} else if (bl->empty){
-			pthread_mutex_unlock(sl->mut);
-			pthread_cond_wait(bl->notEmpty,bl->mut);
-			pthread_mutex_lock(sl->mut);
-		}
-	}
 	pthread_mutex_lock(price_mut);
-	if ((currentPriceX10 > lGetHead(sl)->price1) && (currentPriceX10 < lGetHead(bl)->price1)) {
-		int vol1 = sl->HEAD->ord.vol;
-		int vol2 = bl->HEAD->ord.vol;
-		long int id1 = sl->HEAD->ord.id;
-		long int id2 = bl->HEAD->ord.id;
-		order ord;
-		if (vol1 < vol2) {
-			vol2 = vol2 - vol1;
-			llistDel(sl,&ord);
-			lGetHead(bl)->vol = vol2;
-			pthread_cond_broadcast(sl->notFull);
-			
-			currentPriceX10 = lGetHead(sl)->price1 + (lGetHead(bl)->price1 - lGetHead(sl)->price1)/2;
-			fprintf(log_file,"%08ld	%5.1f	%05d	%08ld	%08ld\n",getTimestamp(),(float) currentPriceX10/10, vol1, id1, id2);
-			fflush(log_file);
-		} else if (vol1 > vol2) {
-			vol1 = vol1 - vol2;
-			llistDel(bl,&ord);
-			lGetHead(sl)->vol = vol1;
-			pthread_cond_broadcast(bl->notFull);
-			
-			currentPriceX10 = lGetHead(sl)->price1 + (lGetHead(bl)->price1 - lGetHead(sl)->price1)/2;
-			fprintf(log_file,"%08ld	%5.1f	%05d	%08ld	%08ld\n",getTimestamp(),(float) currentPriceX10/10, vol2, id1, id2);
-			fflush(log_file);
-		} else {
-			llistDel(sl,&ord);
-			llistDel(bl,&ord);
-			pthread_cond_broadcast(sl->notFull);
-			pthread_cond_broadcast(bl->notFull);
-			
-			currentPriceX10 = lGetHead(sl)->price1 + (lGetHead(bl)->price1 - lGetHead(sl)->price1)/2;
-			fprintf(log_file,"%08ld	%5.1f	%05d	%08ld	%08ld\n",getTimestamp(),(float) currentPriceX10/10, vol1, id1, id2);
-			fflush(log_file);
+	
+	if (!(sl->empty) && !(bl->empty)) {
+		if ((currentPriceX10 >= sl->HEAD->ord.price1) && (currentPriceX10 <= bl->HEAD->ord.price1)) {
+			int vol1 = sl->HEAD->ord.vol, vol2 = bl->HEAD->ord.vol;
+			long int id1 = sl->HEAD->ord.id, id2 = bl->HEAD->ord.id;
+			order ord;
+			if (vol1 < vol2) {
+				currentPriceX10 = sl->HEAD->ord.price1 + (bl->HEAD->ord.price1 - sl->HEAD->ord.price1)/2;
+				vol2 = vol2 - vol1;
+				llistDel(sl,&ord);
+				bl->HEAD->ord.vol = vol2;
+				pthread_cond_broadcast(sl->notFull);
+				
+
+				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1, id1, id2);
+				fflush(log_file);
+			} else if (vol1 > vol2) {
+				currentPriceX10 = sl->HEAD->ord.price1 + (bl->HEAD->ord.price1 - sl->HEAD->ord.price1)/2;
+				vol1 = vol1 - vol2;
+				llistDel(bl,&ord);
+				sl->HEAD->ord.vol = vol1;
+				pthread_cond_broadcast(bl->notFull);
+				
+
+				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol2, id1, id2);
+				fflush(log_file);
+			} else {
+				currentPriceX10 = sl->HEAD->ord.price1 + (bl->HEAD->ord.price1 - sl->HEAD->ord.price1)/2;
+				llistDel(sl,&ord);
+				llistDel(bl,&ord);
+				pthread_cond_broadcast(sl->notFull);
+				pthread_cond_broadcast(bl->notFull);
+				
+
+				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float) currentPriceX10/10, vol1, id1, id2);
+				fflush(log_file);
+			}
 		}
+		
 	}
+	
 	pthread_mutex_unlock(price_mut);
 	pthread_mutex_unlock(sl->mut);
 	pthread_mutex_unlock(bl->mut);
