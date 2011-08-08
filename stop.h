@@ -4,4 +4,6 @@
 extern llist *ssl;
 extern llist *sbl;
 
+void *stopWorker(void *arg);
+
 #endif

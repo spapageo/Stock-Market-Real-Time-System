@@ -1,6 +1,8 @@
 #ifndef LIMIT_H
 #define LIMIT_H
 
+#include "marketSim.h"
+
 extern llist *lsl;
 extern llist *lbl;
 

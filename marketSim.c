@@ -9,7 +9,7 @@
 #include "stop.h"
 #include "stoplimit.h"
 
-//*****************************************************************
+// *****************************************************************
 struct timeval startwtime, endwtime;
 
 int currentPriceX10;
@@ -39,7 +39,7 @@ int main() {
 	gettimeofday (&startwtime, NULL);
 
 	//Create all the thread variables
-	pthread_t prod, cons, cons2, market, lim_thread;
+	pthread_t prod, cons, cons2, market, lim_thread, stop_thread;
 	
 	// Initialize the incoming order queue
 	queue *q = queueInit();
@@ -66,8 +66,9 @@ int main() {
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
-	pthread_create(&lim_thread, NULL, limitWorker, q);
-	pthread_create(&market, NULL, marketWorker, q);
+	pthread_create(&lim_thread, NULL, limitWorker, NULL);
+	pthread_create(&market, NULL, marketWorker, NULL);
+	pthread_create(&stop_thread, NULL, stopWorker, NULL);
 	
 	
 	// I actually do not expect them to ever terminate
@@ -86,8 +87,8 @@ void *Prod (void *arg) {
 	int size;
 	while (1) {
 		pthread_mutex_lock (q->mut);
-		if(q->tail < q->head){
-			size = QUEUESIZE - q->head +q->tail;
+		if( q->tail < q->head){
+			size = QUEUESIZE - q->head + q->tail;
 		} else {
 			size = q->tail - q->head;
 		}
@@ -151,8 +152,8 @@ void *Cons (void *arg) {
 		//fflush(stdout);
 		//printf ("Processing at time %8d : ", getTimestamp());
 
-
 	}
+	return NULL;
 }
 
 // ****************************************************************
@@ -314,7 +315,7 @@ void queueDel (queue *q, order *out)
 	return;
 }
 
-//***************************************************************
+// ***************************************************************
 void llistAdd(llist *l,order o,order_t *after){
 	if(l->empty == 1){
 		l->empty = 0;
@@ -335,7 +336,7 @@ void llistAdd(llist *l,order o,order_t *after){
 	}
 }
 
-//***************************************************************
+// ***************************************************************
 void llistDel(llist *l,order *o){
 	if(l->size == 1){
 		l->empty = 1;
@@ -349,7 +350,7 @@ void llistDel(llist *l,order *o){
 	free(ord);
 }
 
-//***************************************************************
+// ***************************************************************
 llist *llistInit(int shorting,int singal_type){
 	llist *l = malloc(sizeof(llist));
 	if (l == NULL) return (NULL);
@@ -377,9 +378,10 @@ llist *llistInit(int shorting,int singal_type){
 	return l;
 }
 
-//****************************************************************
+// ****************************************************************
 order_t *llistInsertHere( llist *l, order ord){
-	int i,value = ord.price1;
+	unsigned int i;
+	int value = ord.price1;
 	if ( l->size == 0 ){
 		return NULL;
 	}

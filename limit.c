@@ -1,32 +1,32 @@
 #include "marketSim.h"
 #include "limit.h"
 #include "market.h"
-//*********************************************************
+// *********************************************************
 llist *lsl;
 llist *lbl;
 
-//*********************************************************
+// *********************************************************
 
 
 void *limitWorker(void *arg){
-	int none=0;
+	int switch1, switch2, none=0;
 	order o1,o2;
-	o1.price1 = 100;
-	o2.price1 = 100;
-	int switch1,switch2;
+	o1.price1 = 1000;
+	o2.price1 = 1000;
+	
 	while (1) {
 		none = 0;
 		switch1 = lGetHead(lbl,&o1);
 		switch2 = lGetHead(lsl,&o2);
 		
- 		if (switch1 == 1 && !msq->empty){
+		if (switch1 == 1 && (msq->empty == 0)){
  			if(o1.price1 >= currentPriceX10){
  				qlPairDelete( msq, lbl );
  				none=1;
  			}
  		}
 
- 		if (!mbq->empty && switch2 == 1){
+ 		if ((mbq->empty == 0 ) && switch2 == 1){
  			if(o2.price1 <= currentPriceX10){
  				qlPairDelete( mbq, lsl );
  				none=1;
