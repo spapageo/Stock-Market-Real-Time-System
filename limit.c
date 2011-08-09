@@ -49,7 +49,6 @@ void lSafeAdd(llist *l,order ord) {
 
 	/* Check if the list is full. If so, wait on the notFull condition variable */
 	while(l->full){
-		printf("*** Incoming List is Full ***");fflush(stdout);
 		pthread_cond_wait(l->notFull,l->mut);
 	}
 
@@ -128,7 +127,6 @@ void llPairDelete(llist *sl, llist *bl){
 				fflush(log_file);
 			}
 		}
-		
 	}
 	
 	pthread_mutex_unlock(price_mut);

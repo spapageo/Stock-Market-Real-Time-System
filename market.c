@@ -6,8 +6,6 @@
 void qSafeAdd(queue *q,order arg) {
 	pthread_mutex_lock (q->mut);
 	while (q->full) {
-		printf ("*** Incoming %c Market Order Queue is FULL.\n",arg.action);
-		fflush(stdout);
 		pthread_cond_wait (q->notFull, q->mut);
 	}
 	queueAdd (q, arg);

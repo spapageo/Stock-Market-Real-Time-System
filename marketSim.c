@@ -39,7 +39,7 @@ int main() {
 	gettimeofday (&startwtime, NULL);
 
 	//Create all the thread variables
-	pthread_t prod, cons, cons2, market, lim_thread, stop_thread;
+	pthread_t prod, cons, cons2, market, lim_thread, stop_thread, stoplimit_thread;
 	
 	// Initialize the incoming order queue
 	queue *q = queueInit();
@@ -49,26 +49,29 @@ int main() {
 	mbq = queueInit();
 
 	// Initialize the buy and sell limit order lists
-	lsl = llistInit(ASC,ABV);
-	lbl = llistInit(DESC,BLW);
+	lsl = llistInit(ASC);
+	lbl = llistInit(DESC);
 	
 	// Initialize the buy and sell stop order lists
-	ssl = llistInit(ASC,BLW);
-	sbl = llistInit(DESC,ABV);
+	ssl = llistInit(ASC);
+	sbl = llistInit(DESC);
 
 	// Initialize the buy and sell stop limit order lists
-	tsl = llistInit(ASC,BLW);
-	tbl = llistInit(DESC,ABV);
+	tsl = llistInit(ASC);
+	tbl = llistInit(DESC);
 
 	printf("\n\n");
-	
+
 	// Create and laucnch all the appropriate threads
-	pthread_create(&prod, NULL, Prod, q);
-	pthread_create(&cons, NULL, Cons, q);
-	pthread_create(&cons2, NULL, Cons, q);
 	pthread_create(&lim_thread, NULL, limitWorker, NULL);
 	pthread_create(&market, NULL, marketWorker, NULL);
 	pthread_create(&stop_thread, NULL, stopWorker, NULL);
+	pthread_create(&stoplimit_thread, NULL, stoplimitWorker, NULL);
+	pthread_create(&cons, NULL, Cons, q);
+	//pthread_create(&cons2, NULL, Cons, q);
+	pthread_create(&prod, NULL, Prod, q);
+	
+
 	
 	
 	// I actually do not expect them to ever terminate
@@ -84,21 +87,13 @@ int main() {
 // ****************************************************************
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
-	int size;
 	while (1) {
 		pthread_mutex_lock (q->mut);
-		if( q->tail < q->head){
-			size = QUEUESIZE - q->head + q->tail;
-		} else {
-			size = q->tail - q->head;
-		}
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
 		ftruncate(1,0);
-		printf("**** %05d **** %05d **** %05d ****\n",size,lsl->size,lbl->size);fflush(stdout);
+		printf("**** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d ****\n",q->size,msq->size,mbq->size,lsl->size,lbl->size,sbl->size,ssl->size,tsl->size,tbl->size);fflush(stdout);
 		while (q->full) {
-			printf("Incoming order queue is FULL\n");
-			fflush(stdout);
 			pthread_cond_wait (q->notFull, q->mut);
 		}
 		queueAdd (q, makeOrder());
@@ -265,6 +260,7 @@ queue *queueInit (void)
 	q->full = 0;
 	q->head = 0;
 	q->tail = 0;
+	q->size = 0;
 	q->mut = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
 	pthread_mutex_init (q->mut, NULL);
 	q->notFull = (pthread_cond_t *) malloc (sizeof (pthread_cond_t));
@@ -296,7 +292,7 @@ void queueAdd (queue *q, order in)
 	if (q->tail == q->head)
 		q->full = 1;
 	q->empty = 0;
-
+	q->size++;
 	return;
 }
 
@@ -311,7 +307,7 @@ void queueDel (queue *q, order *out)
 	if (q->head == q->tail)
 		q->empty = 1;
 	q->full = 0;
-
+	q->size--;
 	return;
 }
 
@@ -351,18 +347,15 @@ void llistDel(llist *l,order *o){
 }
 
 // ***************************************************************
-llist *llistInit(int shorting,int singal_type){
+llist *llistInit(int shorting){
 	llist *l = malloc(sizeof(llist));
 	if (l == NULL) return (NULL);
 	l->HEAD = NULL;
 	l->MAX_SIZE = QUEUESIZE;
 	l->size=0;
 	l->shorting = shorting;
-	l->signal_type = singal_type;
 	l->empty = 1;
 	l->full = 0;
-	l->price_above = 0;
-	l->price_below = 0;
 	
 	l->mut = malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(l->mut,NULL);
@@ -380,7 +373,7 @@ llist *llistInit(int shorting,int singal_type){
 
 // ****************************************************************
 order_t *llistInsertHere( llist *l, order ord){
-	unsigned int i;
+	short int i;
 	int value = ord.price1;
 	if ( l->size == 0 ){
 		return NULL;

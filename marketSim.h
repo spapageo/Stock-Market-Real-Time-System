@@ -15,10 +15,9 @@
 #define BLW 110
 
 typedef struct {
-	long id,oldid;
-	long timestamp;
-	int vol;
-	int price1, price2;
+	long int id, oldid, timestamp;
+	short int vol;
+	short int price1, price2;
 	char action, type;
 } order;
 
@@ -30,16 +29,15 @@ typedef struct {
 
 typedef struct {
 	order_t *HEAD;
-	unsigned int size;
-	unsigned int MAX_SIZE;
-	int shorting, full, empty, price_above, price_below, signal_type;
+	int size, MAX_SIZE;
+	char shorting, full, empty;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty, *notAbove, *notBelow;
 } llist;
 
 typedef struct {
 	order item[QUEUESIZE];
-	long head, tail;
+	long head, tail, size;
 	int full, empty;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty;
@@ -79,6 +77,6 @@ void llistDel ( llist *l, order* ord);
 
 order_t *llistInsertHere( llist *l, order ord);
 
-llist *llistInit(int shorting,int singal_type);
+llist *llistInit(int shorting);
 
 #endif

@@ -4,4 +4,6 @@
 extern llist *tsl;
 extern llist *tbl;
 
+void *stoplimitWorker(void *arg);
+
 #endif
