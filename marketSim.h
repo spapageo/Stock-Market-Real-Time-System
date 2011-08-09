@@ -39,8 +39,7 @@ typedef struct {
 
 typedef struct {
 	order item[QUEUESIZE];
-	long head, tail;
-	int full, empty;
+	int full, empty, shorting, head, tail, size;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
@@ -65,11 +64,15 @@ long getTimestamp();
 
 void dispOrder(order ord);
 
-queue *queueInit (void);
+queue *queueInit (int shorting);
 
 void queueDelete (queue *q);
 
 void queueAdd (queue *q, order ord);
+
+void qSortAdd (queue *q,order ord);
+
+void queueSort(queue *q);
 
 void queueDel (queue *q, order *ord);
 

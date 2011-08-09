@@ -1,8 +1,8 @@
 #ifndef STOP_H
 
 #define STOP_H
-extern llist *ssl;
-extern llist *sbl;
+extern queue *ssq;
+extern queue *sbq;
 
 void *stopWorker(void *arg);
 

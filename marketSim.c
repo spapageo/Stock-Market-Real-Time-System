@@ -24,8 +24,8 @@ FILE *log_file;
 int main() {
 
 	// reset number generator seed
-	srand(time(NULL) + getpid());
-	//srand(0); // to get the same sequence
+	//srand(time(NULL) + getpid());
+	srand(0); // to get the same sequence
 	
 	//initialize the price, it's mutex, and it's condition variable
 	currentPriceX10 = 1000;
@@ -42,23 +42,23 @@ int main() {
 	pthread_t prod, cons, cons2, market, lim_thread, stop_thread;
 	
 	// Initialize the incoming order queue
-	queue *q = queueInit();
+	queue *q = queueInit(0);
 	
 	// Initialize the buy and sell market queues.
-	msq = queueInit();
-	mbq = queueInit();
+	msq = queueInit(0);
+	mbq = queueInit(0);
 
 	// Initialize the buy and sell limit order lists
-	lsl = llistInit(ASC,ABV);
-	lbl = llistInit(DESC,BLW);
+	lsl = queueInit(ASC);
+	lbl = queueInit(DESC);
 	
 	// Initialize the buy and sell stop order lists
-	ssl = llistInit(ASC,BLW);
-	sbl = llistInit(DESC,ABV);
+	ssq = queueInit(ASC);
+	sbq = queueInit(DESC);
 
 	// Initialize the buy and sell stop limit order lists
-	tsl = llistInit(ASC,BLW);
-	tbl = llistInit(DESC,ABV);
+	tsq = queueInit(ASC);
+	tbq = queueInit(DESC);
 
 	printf("\n\n");
 	
@@ -66,17 +66,17 @@ int main() {
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
-	pthread_create(&lim_thread, NULL, limitWorker, NULL);
-	pthread_create(&market, NULL, marketWorker, NULL);
-	pthread_create(&stop_thread, NULL, stopWorker, NULL);
+	//pthread_create(&lim_thread, NULL, limitWorker, NULL);
+	//pthread_create(&market, NULL, marketWorker, NULL);
+	//pthread_create(&stop_thread, NULL, stopWorker, NULL);
 	
 	
 	// I actually do not expect them to ever terminate
 	pthread_join(prod, NULL);
 	pthread_join(cons, NULL);
 	pthread_join(cons2, NULL);
-	pthread_join(market, NULL);
-	pthread_join(lim_thread, NULL);
+	//pthread_join(market, NULL);
+	//pthread_join(lim_thread, NULL);
 
 	pthread_exit(NULL);
 }
@@ -132,25 +132,22 @@ void *Cons (void *arg) {
 				qSafeAdd(mbq,ord);
 		} else if (ord.type == 'L') {
 			if(ord.action == 'S')
-				lSafeAdd(lsl,ord);
+				qSafeSortAdd(lsl,ord);
 			else
-				lSafeAdd(lbl,ord);
+				qSafeSortAdd(lbl,ord);
 		} else if (ord.type == 'S') {
 			if(ord.action == 'S')
-				lSafeAdd(ssl,ord);
+				qSafeSortAdd(ssq,ord);
 			else
-				lSafeAdd(sbl,ord);
+				qSafeSortAdd(sbq,ord);
 		} else if (ord.type == 'T') {
 			if(ord.action == 'S')
-				lSafeAdd(tsl,ord);
+				qSafeSortAdd(tsq,ord);
 			else
-				lSafeAdd(tbl,ord);
+				qSafeSortAdd(tbq,ord);
 		} else {
 			//Here we hadle the cancel commands
 		}
-		//dispOrder(ord);
-		//fflush(stdout);
-		//printf ("Processing at time %8d : ", getTimestamp());
 
 	}
 	return NULL;
@@ -254,7 +251,7 @@ void dispOrder(order ord) {
 }
 
 // ****************************************************************
-queue *queueInit (void)
+queue *queueInit (int shorting)
 {
 	queue *q;
 
@@ -265,6 +262,8 @@ queue *queueInit (void)
 	q->full = 0;
 	q->head = 0;
 	q->tail = 0;
+	q->size = 0;
+	q->shorting = shorting;
 	q->mut = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
 	pthread_mutex_init (q->mut, NULL);
 	q->notFull = (pthread_cond_t *) malloc (sizeof (pthread_cond_t));
@@ -296,7 +295,7 @@ void queueAdd (queue *q, order in)
 	if (q->tail == q->head)
 		q->full = 1;
 	q->empty = 0;
-
+	q->size++;
 	return;
 }
 
@@ -311,7 +310,7 @@ void queueDel (queue *q, order *out)
 	if (q->head == q->tail)
 		q->empty = 1;
 	q->full = 0;
-
+	q->size--;
 	return;
 }
 
@@ -406,4 +405,52 @@ order_t *llistInsertHere( llist *l, order ord){
 		}
 	}
 	return lo;
+}
+
+void qSortAdd (queue *q,order ord){
+	
+	queueAdd(q,ord);
+	queueSort(q);
+
+}
+
+void queueSort(queue *q){
+	order tmp;
+	int done = 0,tail = q->tail;
+	if(tail == 0)
+		tail = QUEUESIZE - 1;
+	else
+		tail = tail - 1;
+	tmp = q->item[tail];
+	int head = q->head;
+	if(q->shorting == ASC ){
+		while(tail != head && done == 0){
+			if(tail == 0)
+				tail = QUEUESIZE - 1;
+			else
+				tail = tail - 1;
+			if(q->item[ tail ].price1 > tmp.price1){
+				q->item[ tail + 1] = q->item[ tail ];
+				q->item[ tail ] = tmp;
+			} else {
+				done = 1;
+			}
+			tmp = q->item[ tail ];
+		}
+	} else {
+		while(tail != head && done == 0){
+			if(tail == 0)
+				tail = QUEUESIZE - 1;
+			else
+				tail = tail - 1;
+			if(q->item[ tail ].price1 < tmp.price1){
+				q->item[ tail + 1] = q->item[ tail ];
+				q->item[ tail ] = tmp;
+			} else {
+				done = 1;
+			}
+			tmp = q->item[ tail ];
+		}
+	}
+
 }

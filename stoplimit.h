@@ -1,7 +1,9 @@
 #ifndef STOPLIMIT_H
 #define STOPLIMIT_H
 
-extern llist *tsl;
-extern llist *tbl;
+#include "marketSim.h"
+
+extern queue *tsq;
+extern queue *tbq;
 
 #endif

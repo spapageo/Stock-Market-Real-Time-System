@@ -14,7 +14,7 @@ clang: marketSim.c market.c stop.c limit.c marketSim.h market.h stop.h limit.h
 	clang -Wall -Wextra -O4 -ffast-math -funroll-loops marketSim.c market.c stop.c stoplimit.c limit.c -lpthread -o marketSim
 
 debug: marketSim.c market.c stop.c limit.c marketSim.h market.h stop.h limit.h
-	$(CC) -Wall -g3 -O3 marketSim.c market.c stop.c stoplimit.c limit.c -lpthread -o marketSim
+	gcc -Wall -g3 marketSim.c market.c stop.c stoplimit.c limit.c -lpthread -o marketSim
 
 profile: marketSim.c market.c stop.c limit.c marketSim.h market.h stop.h limit.h
 	gcc -Wall -pg -g3 -O3 marketSim.c market.c stop.c stoplimit.c limit.c -lpthread -o marketSim
