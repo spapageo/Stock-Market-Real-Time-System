@@ -70,18 +70,18 @@ void queueDelete (queue *q);
 
 void queueAdd (queue *q, order ord);
 
+order *qGetFirst(queue *q);
+
 void qSortAdd (queue *q,order ord);
+
+void qSafeSortAdd(queue *q,order ord);
+
+void qSafeAdd(queue *q,order arg);
+
+void qSafeDelete(queue *q,order *arg);
 
 void queueSort(queue *q);
 
 void queueDel (queue *q, order *ord);
-
-void llistAdd (llist *l, order ord, order_t *after);
-
-void llistDel ( llist *l, order* ord);
-
-order_t *llistInsertHere( llist *l, order ord);
-
-llist *llistInit(int shorting,int singal_type);
 
 #endif

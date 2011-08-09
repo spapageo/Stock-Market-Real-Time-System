@@ -6,4 +6,5 @@
 extern queue *tsq;
 extern queue *tbq;
 
+void *stoplimitWorker(void *arg);
 #endif

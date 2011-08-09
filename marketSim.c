@@ -16,16 +16,14 @@ int currentPriceX10;
 
 pthread_mutex_t *price_mut;
 
-pthread_cond_t *cur_price_changed;
-
 FILE *log_file;
 
 // ****************************************************************
 int main() {
 
 	// reset number generator seed
-	//srand(time(NULL) + getpid());
-	srand(0); // to get the same sequence
+	srand(time(NULL) + getpid());
+	//srand(0); // to get the same sequence
 	
 	//initialize the price, it's mutex, and it's condition variable
 	currentPriceX10 = 1000;
@@ -39,7 +37,7 @@ int main() {
 	gettimeofday (&startwtime, NULL);
 
 	//Create all the thread variables
-	pthread_t prod, cons, cons2, market, lim_thread, stop_thread;
+	pthread_t prod, cons, market, lim_thread, stop_thread,slim_thread;
 	
 	// Initialize the incoming order queue
 	queue *q = queueInit(0);
@@ -63,20 +61,17 @@ int main() {
 	printf("\n\n");
 	
 	// Create and laucnch all the appropriate threads
-	pthread_create(&prod, NULL, Prod, q);
-	pthread_create(&cons, NULL, Cons, q);
-	pthread_create(&cons2, NULL, Cons, q);
-	//pthread_create(&lim_thread, NULL, limitWorker, NULL);
-	//pthread_create(&market, NULL, marketWorker, NULL);
-	//pthread_create(&stop_thread, NULL, stopWorker, NULL);
 	
+	pthread_create(&cons, NULL, Cons, q);
+	pthread_create(&lim_thread, NULL, limitWorker, NULL);
+	pthread_create(&market, NULL, marketWorker, NULL);
+	pthread_create(&stop_thread, NULL, stopWorker, NULL);
+	pthread_create(&slim_thread, NULL, stoplimitWorker, NULL);
+	pthread_create(&prod, NULL, Prod, q);
 	
 	// I actually do not expect them to ever terminate
 	pthread_join(prod, NULL);
-	pthread_join(cons, NULL);
-	pthread_join(cons2, NULL);
-	//pthread_join(market, NULL);
-	//pthread_join(lim_thread, NULL);
+
 
 	pthread_exit(NULL);
 }
@@ -84,21 +79,16 @@ int main() {
 // ****************************************************************
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
-	int size;
 	while (1) {
 		pthread_mutex_lock (q->mut);
-		if( q->tail < q->head){
-			size = QUEUESIZE - q->head + q->tail;
-		} else {
-			size = q->tail - q->head;
-		}
+		
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
 		ftruncate(1,0);
-		printf("**** %05d **** %05d **** %05d ****\n",size,lsl->size,lbl->size);fflush(stdout);
+		printf("**** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d ****\n",q->size,lsl->size,lbl->size,ssq->size,sbq->size,tsq->size,tbq->size);
+		fflush(stdout);
+		
 		while (q->full) {
-			printf("Incoming order queue is FULL\n");
-			fflush(stdout);
 			pthread_cond_wait (q->notFull, q->mut);
 		}
 		queueAdd (q, makeOrder());
@@ -314,99 +304,7 @@ void queueDel (queue *q, order *out)
 	return;
 }
 
-// ***************************************************************
-void llistAdd(llist *l,order o,order_t *after){
-	if(l->empty == 1){
-		l->empty = 0;
-	} else if (l->size == l->MAX_SIZE - 1){
-		l->full = 1;
-	}
-	order_t *ord = malloc(sizeof(order_t));
-	if(ord==NULL){printf("Malloc error\n");fflush(stdout);exit(1);}
-	ord->ord = o;
-	l->size += 1;
-	
-	if(after != NULL){
-		ord->next = after->next;
-		after->next = ord;
-	} else {
-		ord->next = l->HEAD;
-		l->HEAD = ord;
-	}
-}
-
-// ***************************************************************
-void llistDel(llist *l,order *o){
-	if(l->size == 1){
-		l->empty = 1;
-	} else if (l->size == l->MAX_SIZE) {
-		l->full = 0;
-	}
-	l->size -= 1;
-	order_t *ord = l->HEAD;
-	l->HEAD = ord->next;
-	*o = ord->ord;
-	free(ord);
-}
-
-// ***************************************************************
-llist *llistInit(int shorting,int singal_type){
-	llist *l = malloc(sizeof(llist));
-	if (l == NULL) return (NULL);
-	l->HEAD = NULL;
-	l->MAX_SIZE = QUEUESIZE;
-	l->size=0;
-	l->shorting = shorting;
-	l->signal_type = singal_type;
-	l->empty = 1;
-	l->full = 0;
-	l->price_above = 0;
-	l->price_below = 0;
-	
-	l->mut = malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(l->mut,NULL);
-	l->notEmpty = malloc(sizeof(pthread_cond_t));
-	pthread_cond_init(l->notEmpty,NULL);
-	l->notFull = malloc(sizeof(pthread_cond_t));
-	pthread_cond_init(l->notFull,NULL);
-	l->notAbove = malloc(sizeof(pthread_attr_t));
-	pthread_cond_init(l->notAbove,NULL);
-	l->notBelow = malloc(sizeof(pthread_attr_t));
-	pthread_cond_init(l->notBelow,NULL);
-	
-	return l;
-}
-
-// ****************************************************************
-order_t *llistInsertHere( llist *l, order ord){
-	unsigned int i;
-	int value = ord.price1;
-	if ( l->size == 0 ){
-		return NULL;
-	}
-	order_t *lo = NULL, *co = l->HEAD;
-	if (l->shorting == ASC){
-		for (i = 0;i < l->size; i++){
-			if ( co->ord.price1 > value ){
-				break;
-			} else {
-				lo = co;
-				co = lo->next;
-			}
-		}
-	} else {
-		for (i = 0;i < l->size; i++){
-			if ( co->ord.price1 < value ){
-				break;
-			} else {
-				lo = co;
-				co = lo->next;
-			}
-		}
-	}
-	return lo;
-}
-
+// *****************************************************************
 void qSortAdd (queue *q,order ord){
 	
 	queueAdd(q,ord);
@@ -414,6 +312,7 @@ void qSortAdd (queue *q,order ord){
 
 }
 
+// *****************************************************************
 void queueSort(queue *q){
 	order tmp;
 	int done = 0,tail = q->tail;
@@ -452,5 +351,52 @@ void queueSort(queue *q){
 			tmp = q->item[ tail ];
 		}
 	}
+}
 
+void qSafeSortAdd(queue *l,order ord) {
+	/* Lock the list mutex */
+	pthread_mutex_lock(l->mut);
+	
+	/* Check if the list is full. If so, wait on the notFull condition variable */
+	while(l->full){
+		printf("*** Incoming List is Full ***");fflush(stdout);
+		pthread_cond_wait(l->notFull,l->mut);
+	}
+	
+	/* Insert the new order, and sort the queue */
+	qSortAdd(l,ord);
+	
+	/* Broadcast that the queue isn't empty */
+	pthread_cond_broadcast(l->notEmpty);
+	
+	/* Unlock the list mutex and return */
+	pthread_mutex_unlock(l->mut);
+}
+
+void qSafeAdd(queue *q,order arg) {
+	pthread_mutex_lock (q->mut);
+	while (q->full) {
+		pthread_cond_wait (q->notFull, q->mut);
+	}
+	queueAdd(q, arg);
+	pthread_cond_broadcast(q->notEmpty);
+	pthread_mutex_unlock(q->mut);
+}
+
+void qSafeDelete(queue *q,order *arg) {
+	
+	pthread_mutex_lock(q->mut);
+	while (q->empty){
+		pthread_cond_wait(q->notEmpty, q->mut);
+	}
+	queueDel(q, arg);
+	
+	pthread_cond_broadcast(q->notFull);
+	pthread_mutex_unlock(q->mut);
+	
+}
+
+/* Returns the the order at the head of the queue */
+order *qGetFirst(queue *q) {
+	return &(q->item[q->head]);
 }

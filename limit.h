@@ -6,10 +6,7 @@
 extern queue *lsl;
 extern queue *lbl;
 
-void qSafeSortAdd(queue *q,order ord);
-void lSafeDelete(llist *l,order *ord);
-void llPairDelete(llist *sl, llist *bl);
+void llPairDelete(queue *sl, queue *bl);
 void *limitWorker(void *arg);
-int lGetHead(llist *l,order *o);
 
 #endif
