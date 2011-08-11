@@ -7,6 +7,6 @@ queue *mbq;
 void *marketWorker(void *arg);
 
 void mmPairDelete();
-void qlPairDelete(queue *q, queue *l);
+void mlPairDelete(queue *q, queue *l);
 
 #endif

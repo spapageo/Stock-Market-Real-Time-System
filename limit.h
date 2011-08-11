@@ -3,8 +3,8 @@
 
 #include "marketSim.h"
 
-extern queue *lsl;
-extern queue *lbl;
+extern queue *lsq;
+extern queue *lbq;
 
 void llPairDelete(queue *sl, queue *bl);
 void *limitWorker(void *arg);

@@ -16,7 +16,7 @@ void *stoplimitWorker(void *arg){
 				qSafeDelete(tsq,&o1);
 				o1.type = 'L';
 				o1.price1 = o1.price2;
-				qSafeSortAdd(lsl,o1);
+				qSafeSortAdd(lsq,o1);
 			}
 		}
 		
@@ -25,7 +25,7 @@ void *stoplimitWorker(void *arg){
 				qSafeDelete(tbq,&o1);
 				o1.type = 'L';
 				o1.price1 = o1.price2;
-				qSafeSortAdd(lbl,o1);
+				qSafeSortAdd(lbq,o1);
 			}
 		}
 		

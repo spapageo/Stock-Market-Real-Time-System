@@ -6,21 +6,21 @@
 
 void *marketWorker(void *arg) {
 
-	int none;
+	char none;
 	
 	while (1) {
 		
 		none = 0;
-		if ( (msq->empty == 0) && (lbl->empty == 0) ) {
-			if(lbl->item[lbl->head].price1 >= currentPriceX10){
-				qlPairDelete( msq, lbl );
+		if ( (msq->empty == 0) && (lbq->empty == 0) ) {
+			if(lbq->item[lbq->head].price1 >= currentPriceX10){
+				mlPairDelete( msq, lbq );
 				none=1;
 			}
 		}
 
-		if ((mbq->empty == 0) && (lsl->empty == 0) ) {
-			if(lsl->item[lsl->head].price1 <= currentPriceX10){
-				qlPairDelete( mbq, lsl );
+		if ((mbq->empty == 0) && (lsq->empty == 0) ) {
+			if(lsq->item[lsq->head].price1 <= currentPriceX10){
+				mlPairDelete( mbq, lsq );
 				none=1;
 			}
 		}
@@ -54,10 +54,6 @@ void mmPairDelete() {
 			
 			vol2 = vol2 - vol1;
 			queueDel(msq,&ord);
-
-			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1,id1,id2);
-			fflush(log_file);
-			
 			qGetFirst(mbq)->vol = vol2;
 			pthread_cond_broadcast(msq->notFull);
 			
@@ -65,10 +61,6 @@ void mmPairDelete() {
 			
 			vol1 = vol1 - vol2;
 			queueDel(mbq,&ord);
-
-			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol2,id1,id2);
-			fflush(log_file);
-			
 			qGetFirst(msq)->vol = vol1;
 			pthread_cond_broadcast(mbq->notFull);
 			
@@ -76,14 +68,12 @@ void mmPairDelete() {
 			
 			queueDel(mbq,&ord);
 			queueDel(msq,&ord);
-
-			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1,id1,id2);
-			fflush(log_file);
-			
 			pthread_cond_broadcast(msq->notFull);
 			pthread_cond_broadcast(mbq->notFull);
 			
 		}
+		fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1,id1,id2);
+		fflush(log_file);
 	}
 
 	/* Unlock both queues and return */
@@ -96,49 +86,46 @@ void mmPairDelete() {
  *  Check if both both the queue and the list are not empty. If so, and also if the rest of the requirements are met,
  *  performs the trasaction and prints it to the log file.
  */
-void qlPairDelete( queue *q, queue *l ){
+void mlPairDelete( queue *q, queue *l ){
 	/* Lock both the list, the queue and the current price mutexes */
 	pthread_mutex_lock(l->mut);
 	pthread_mutex_lock(q->mut);
 	pthread_mutex_lock(price_mut);
 
 	if( !q->empty && !l->empty ){
-		if ((l->item[l->head].action == 'S' && l->item[l->head].price1 < currentPriceX10) || (l->item[l->head].action == 'B' && l->item[l->head].price1 > currentPriceX10)){
+		if (((l->item[l->head].action == 'S') && (l->item[l->head].price1 <= currentPriceX10)) || ((l->item[l->head].action == 'B') && (l->item[l->head].price1 >= currentPriceX10))){
 			int vol1 = q->item[q->head].vol;
 			int vol2 = l->item[l->head].vol;
+			int pvol = 0;
 			long int id1 = q->item[q->head].id;
 			long int id2 = l->item[l->head].id;
 			order ord;
 
 			if (vol1 < vol2) {
 				vol2 = vol2 - vol1;
+				pvol = vol1;
 				queueDel(q,&ord);
 				l->item[l->head].vol = vol2;
 				pthread_cond_broadcast(q->notFull);
-
 				currentPriceX10 = l->item[l->head].price1;
-				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, vol1, id1, id2);
-				fflush(log_file);
 
 			} else if (vol1 > vol2) {
 				vol1 = vol1 - vol2;
+				pvol = vol2;
 				queueDel(l,&ord);
 				qGetFirst(q)->vol = vol1;
 				pthread_cond_broadcast(l->notFull);
-
 				currentPriceX10 = ord.price1;
-				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, vol2, id1, id2);
-				fflush(log_file);
 			} else {
+				pvol = vol1;
 				queueDel(q,&ord);
 				queueDel(l,&ord);
 				pthread_cond_broadcast(q->notFull);
 				pthread_cond_broadcast(l->notFull);
-
 				currentPriceX10 = ord.price1;
-				fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, vol2, id1, id2);
-				fflush(log_file);
 			}
+			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, pvol, id1, id2);
+			fflush(log_file);
 		}
 	}
 
