@@ -46,8 +46,8 @@ void mmPairDelete() {
 		 */
 		int vol1 = msq->item[msq->head].vol;
 		int vol2 = mbq->item[mbq->head].vol;
-		long int id1 = msq->item[msq->head].id;
-		long int id2 = mbq->item[mbq->head].id;
+		int id1 = msq->item[msq->head].id;
+		int id2 = mbq->item[mbq->head].id;
 		order ord;
 		
 		if (vol1 < vol2) {
@@ -72,7 +72,7 @@ void mmPairDelete() {
 			pthread_cond_broadcast(mbq->notFull);
 			
 		}
-		fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1,id1,id2);
+		fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, vol1,id1,id2);
 		fflush(log_file);
 	}
 
@@ -87,6 +87,7 @@ void mmPairDelete() {
  *  performs the trasaction and prints it to the log file.
  */
 void mlPairDelete( queue *q, queue *l ){
+	
 	/* Lock both the list, the queue and the current price mutexes */
 	pthread_mutex_lock(l->mut);
 	pthread_mutex_lock(q->mut);
@@ -94,11 +95,9 @@ void mlPairDelete( queue *q, queue *l ){
 
 	if( !q->empty && !l->empty ){
 		if (((l->item[l->head].action == 'S') && (l->item[l->head].price1 <= currentPriceX10)) || ((l->item[l->head].action == 'B') && (l->item[l->head].price1 >= currentPriceX10))){
-			int vol1 = q->item[q->head].vol;
-			int vol2 = l->item[l->head].vol;
+			int vol1 = q->item[q->head].vol, vol2 = l->item[l->head].vol;
 			int pvol = 0;
-			long int id1 = q->item[q->head].id;
-			long int id2 = l->item[l->head].id;
+			int id1 = q->item[q->head].id, id2 = l->item[l->head].id;
 			order ord;
 
 			if (vol1 < vol2) {
@@ -124,7 +123,7 @@ void mlPairDelete( queue *q, queue *l ){
 				pthread_cond_broadcast(l->notFull);
 				currentPriceX10 = ord.price1;
 			}
-			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, pvol, id1, id2);
+			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, pvol, id1, id2);
 			fflush(log_file);
 		}
 	}

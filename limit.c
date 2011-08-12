@@ -47,7 +47,7 @@ void llPairDelete(queue *sl, queue *bl){
 		if ((currentPriceX10 >= sl->item[sl->head].price1) && (currentPriceX10 <= bl->item[bl->head].price1)) {
 			int vol1 = sl->item[sl->head].vol, vol2 = bl->item[bl->head].vol;
 			int pvol = 0;
-			long int id1 = sl->item[sl->head].id, id2 = bl->item[bl->head].id;
+			int id1 = sl->item[sl->head].id, id2 = bl->item[bl->head].id;
 			order ord;
 			if (vol1 < vol2) {
 				currentPriceX10 = ( sl->item[sl->head].price1 + bl->item[bl->head].price1)/2;
@@ -72,7 +72,7 @@ void llPairDelete(queue *sl, queue *bl){
 				pthread_cond_broadcast(sl->notFull);
 				pthread_cond_broadcast(bl->notFull);
 			}
-			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08ld	%08ld\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, pvol, id1, id2);
+			fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, pvol, id1, id2);
 			fflush(log_file);
 		}
 

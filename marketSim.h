@@ -1,7 +1,6 @@
 #ifndef MARKET_SIM_H
 #define MARKET_SIM_H
 
-#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 
@@ -11,12 +10,9 @@
 
 #define DESC 100
 
-
-
 typedef struct {
-	long int id, oldid, timestamp;
-	int vol;
-	int price1, price2;
+	long int timestamp;
+	int vol, id, oldid, price1, price2;
 	char action, type;
 } order;
 
@@ -24,7 +20,7 @@ typedef struct {
 typedef struct {
 	order item[QUEUESIZE];
 	char full, empty, shorting;
-	int head, tail, size;
+	volatile int head, tail, size;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
@@ -33,7 +29,7 @@ typedef struct {
 	char *archive;
 } rec;
 
-extern int currentPriceX10;
+extern volatile int currentPriceX10;
 
 extern pthread_mutex_t *price_mut;
 

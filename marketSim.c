@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <limits.h>
 #include "marketSim.h"
 #include "market.h"
 #include "limit.h"
@@ -13,7 +14,7 @@
 // *****************************************************************
 struct timeval startwtime, endwtime;
 
-int currentPriceX10;
+volatile int currentPriceX10;
 
 rec saves;
 
@@ -36,7 +37,7 @@ int main() {
 	//open the log file foe writing
 	log_file = fopen("logfile.txt","w+");
 
-	saves.archive = calloc(2000000, sizeof(char));
+	saves.archive = calloc(INT_MAX,sizeof(char));
 	if(saves.archive == NULL) exit(0);
 	
 	// start the time for timestamps
@@ -230,7 +231,7 @@ long getTimestamp() {
 // ****************************************************************
 void dispOrder(order ord) {
 
-	printf("%08ld ", ord.id);
+	printf("%08d ", ord.id);
 	printf("%08ld ", ord.timestamp);
 	switch ( ord.type ) {
 	case 'M':
@@ -251,7 +252,7 @@ void dispOrder(order ord) {
 			   ord.vol, (float) ord.price1/10.0, (float) ord.price2/10.0);
 		break;
 	case 'C':
-		printf("* Cancel  %6ld		", ord.oldid);
+		printf("* Cancel  %6d		", ord.oldid);
 		break;
 	default :
 		break;
