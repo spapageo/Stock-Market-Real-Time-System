@@ -20,6 +20,8 @@ rec saves;
 
 pthread_mutex_t *price_mut;
 
+pthread_cond_t *price_changed;
+
 FILE *log_file;
 
 // ****************************************************************
@@ -33,8 +35,10 @@ int main() {
 	currentPriceX10 = 1000;
 	price_mut = malloc (sizeof(pthread_mutex_t));
 	pthread_mutex_init(price_mut,NULL);
-
-	//open the log file foe writing
+	price_changed = malloc (sizeof(pthread_cond_t));
+	pthread_cond_init(price_changed,NULL);
+	
+	//open the log file for writing
 	log_file = fopen("logfile.txt","w+");
 
 	saves.archive = calloc(INT_MAX,sizeof(char));
@@ -70,7 +74,7 @@ int main() {
 	// Create and launch all the appropriate threads
 	
 	pthread_create(&cons, NULL, Cons, q);
-	pthread_create(&cons2, NULL, Cons, q);
+	//pthread_create(&cons2, NULL, Cons, q);
 	pthread_create(&lim_thread, NULL, limitWorker, NULL);
 	pthread_create(&market, NULL, marketWorker, NULL);
 	pthread_create(&stop_thread, NULL, stopWorker, NULL);

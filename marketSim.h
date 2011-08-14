@@ -20,7 +20,7 @@ typedef struct {
 typedef struct {
 	order item[QUEUESIZE];
 	char full, empty, shorting;
-	volatile int head, tail, size;
+	int head, tail, size;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
@@ -32,6 +32,8 @@ typedef struct {
 extern volatile int currentPriceX10;
 
 extern pthread_mutex_t *price_mut;
+
+extern pthread_cond_t *price_changed;
 
 extern FILE *log_file;
 
