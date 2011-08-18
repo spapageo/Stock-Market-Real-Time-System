@@ -10,13 +10,19 @@
 #include "limit.h"
 #include "stop.h"
 #include "stoplimit.h"
+#include "cancel.h"
+
 
 // *****************************************************************
 struct timeval startwtime, endwtime;
 
-volatile int currentPriceX10;
+int currentPriceX10;
 
 rec saves;
+
+signal *slimit;
+
+signal *lim;
 
 pthread_mutex_t *price_mut;
 
@@ -27,28 +33,31 @@ FILE *log_file;
 // ****************************************************************
 int main() {
 
-	// reset number generator seed
+	/* reset number generator seed */
 	srand(time(NULL) + getpid());
 	//srand(0); // to get the same sequence
 	
-	//initialize the price, it's mutex, and it's condition variable
+	/* initialize the price and it's mutex */
 	currentPriceX10 = 1000;
 	price_mut = malloc (sizeof(pthread_mutex_t));
 	pthread_mutex_init(price_mut,NULL);
-	price_changed = malloc (sizeof(pthread_cond_t));
-	pthread_cond_init(price_changed,NULL);
+	
+	slimit = signalInit();
+	lim = signalInit();
 	
 	//open the log file for writing
 	log_file = fopen("logfile.txt","w+");
 
+	saves.mut = malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(saves.mut,NULL);
 	saves.archive = calloc(INT_MAX,sizeof(char));
 	if(saves.archive == NULL) exit(0);
 	
 	// start the time for timestamps
 	gettimeofday (&startwtime, NULL);
-
+	
 	//Create all the thread variables
-	pthread_t prod, cons, cons2, market, lim_thread, stop_thread,slim_thread;
+	pthread_t prod, cons, cons2, market, lim_thread, stop_thread, slim_thread, cancel;
 	
 	// Initialize the incoming order queue
 	queue *q = queueInit(0);
@@ -57,34 +66,39 @@ int main() {
 	msq = queueInit(0);
 	mbq = queueInit(0);
 
-	// Initialize the buy and sell limit order lists
+	// Initialize the buy and sell limit order queues
 	lsq = queueInit(ASC);
 	lbq = queueInit(DESC);
 	
-	// Initialize the buy and sell stop order lists
+	// Initialize the buy and sell stop order queues
 	ssq = queueInit(ASC);
 	sbq = queueInit(DESC);
-
-	// Initialize the buy and sell stop limit order lists
+	
+	// Initialize the buy and sell stop limit order queues
 	tsq = queueInit(ASC);
 	tbq = queueInit(DESC);
 
+	//Initialize the cancel queue
+	cq = queueInit(0);
+	
+	printf("     buffer |market sell|market buy|limit sell|limit buy |stop sell | stop buy |slimit sell|slimit buy");
 	printf("\n\n");
 	
 	// Create and launch all the appropriate threads
-	
+	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
-	//pthread_create(&cons2, NULL, Cons, q);
+	pthread_create(&cons2, NULL, Cons, q);
 	pthread_create(&lim_thread, NULL, limitWorker, NULL);
 	pthread_create(&market, NULL, marketWorker, NULL);
 	pthread_create(&stop_thread, NULL, stopWorker, NULL);
 	pthread_create(&slim_thread, NULL, stoplimitWorker, NULL);
-	pthread_create(&prod, NULL, Prod, q);
+	pthread_create(&cancel, NULL, cancelWorker, NULL);
+	
 	
 	// I actually do not expect them to ever terminate
 	pthread_join(prod, NULL);
-
-
+	
+	
 	pthread_exit(NULL);
 }
 
@@ -92,7 +106,7 @@ int main() {
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
 	while (1) {
-		pthread_mutex_lock (q->mut);
+		
 		
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
@@ -100,12 +114,15 @@ void *Prod (void *arg) {
 		printf("**** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d ****\n",q->size,msq->size,mbq->size,lsq->size,lbq->size,ssq->size,sbq->size,tsq->size,tbq->size);
 		fflush(stdout);
 		
+		pthread_mutex_lock (q->mut);
 		while (q->full) {
 			pthread_cond_wait (q->notFull, q->mut);
 		}
 		queueAdd (q, makeOrder());
+
 		pthread_cond_broadcast (q->notEmpty);
 		pthread_mutex_unlock (q->mut);
+		
 	}
 	return NULL;
 }
@@ -117,51 +134,69 @@ void *Cons (void *arg) {
 
 	while (1) {
 		pthread_mutex_lock (q->mut);
+		
 		while (q->empty) {
 			pthread_cond_wait (q->notEmpty, q->mut);
 		}
+		
 		queueDel (q, &ord);
-
+		
 		pthread_cond_broadcast(q->notFull);
 		pthread_mutex_unlock (q->mut);
+
+
 		
 		// YOUR CODE IS CALLED FROM HERE
 		// Process that order!
+		
+		pthread_mutex_lock(saves.mut);
 		if (ord.type == 'M') {
 			if(ord.action == 'S'){
-				qSafeAdd(msq,ord);
 				saves.archive[ord.id] = 'M';
+				pthread_mutex_unlock(saves.mut);
+				qSafeAdd(msq,ord);
 			} else {
-				qSafeAdd(mbq,ord);
 				saves.archive[ord.id] = 'N';
+				pthread_mutex_unlock(saves.mut);
+				qSafeAdd(mbq,ord);
 			}
 		} else if (ord.type == 'L') {
 			if(ord.action == 'S'){
-				qSafeSortAdd(lsq,ord);
 				saves.archive[ord.id] = 'L';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(lsq,ord);
 			}else{
-				qSafeSortAdd(lbq,ord);
 				saves.archive[ord.id] = 'K';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(lbq,ord);
 			}
 		} else if (ord.type == 'S') {
 			if(ord.action == 'S'){
-				qSafeSortAdd(ssq,ord);
 				saves.archive[ord.id] = 'S';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(ssq,ord);
 			}else{
-				qSafeSortAdd(sbq,ord);
 				saves.archive[ord.id] = 'P';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(sbq,ord);
 			}
 		} else if (ord.type == 'T') {
 			if(ord.action == 'S'){
-				qSafeSortAdd(tsq,ord);
 				saves.archive[ord.id] = 'T';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(tsq,ord);
 			}else{
-				qSafeSortAdd(tbq,ord);
 				saves.archive[ord.id] = 'W';
+				pthread_mutex_unlock(saves.mut);
+				qSafeSortAdd(tbq,ord);
 			}
 		} else {
-			//Here we hadle the cancel commands
+			saves.archive[ord.id] = 'C';
+			pthread_mutex_unlock(saves.mut);
+			qSafeAdd(cq,ord);
+			
 		}
+
 
 	}
 	return NULL;
@@ -169,11 +204,11 @@ void *Cons (void *arg) {
 
 // ****************************************************************
 order makeOrder() {
-
+	//pthread_mutex_lock(price_mut);
 	static int count = 0;
 	int magnitude = 10;
 	int waitmsec;
-
+	
 	order ord;
 
 	// wait for a random amount of time in useconds
@@ -183,6 +218,7 @@ order makeOrder() {
 	ord.id = count++;
 	ord.oldid = 0;
 	ord.timestamp = getTimestamp();
+	ord.vol = 0;
 
 	// Buy or Sell
 	ord.action = ((double)rand()/(double)RAND_MAX <= 0.5) ? 'B' : 'S';
@@ -199,19 +235,22 @@ order makeOrder() {
 		ord.type = 'L';				 // Limit order
 		ord.vol = (1 + rand()%50)*100;
 		ord.price1 = currentPriceX10 + 10*(0.5 -((double)rand()/(double)RAND_MAX));
+		if(ord.price1 < 0) ord.price1 = -ord.price1;
 		ord.price2 = 0;
 
 	} else if (0.4 <= u2 && u2 < 0.6) {
 		ord.type = 'S';				 // Stop order
 		ord.vol = (1 + rand()%50)*100;
 		ord.price1 = currentPriceX10 + 10*(0.5 -((double)rand()/(double)RAND_MAX));
+		if(ord.price1 < 0) ord.price1 = -ord.price1;
 		ord.price2 = 0;
-
 	} else if (0.6 <= u2 && u2 < 0.8) {
 		ord.type = 'T';				 // Stop Limit order
 		ord.vol = (1 + rand()%50)*100;
 		ord.price1 = currentPriceX10 + 10*(0.5 -((double)rand()/(double)RAND_MAX));
+		if(ord.price1 < 0) ord.price1 = -ord.price1;
 		ord.price2 = currentPriceX10 + 10*(0.5 -((double)rand()/(double)RAND_MAX));
+		if(ord.price2 < 0) ord.price2 = -ord.price1;
 
 	} else {
 		ord.type = 'C';				 // Cancel order
@@ -219,7 +258,7 @@ order makeOrder() {
 		ord.price1 = 0;
 		ord.price2 = 0;
 	}
-
+	//pthread_mutex_unlock(price_mut);
 	return (ord);
 }
 
@@ -303,13 +342,18 @@ void queueDelete (queue *q) {
 void queueAdd (queue *q, order in)
 {
 	q->item[q->tail] = in;
-	q->tail++;
-	if (q->tail == QUEUESIZE)
+	if (q->tail == QUEUESIZE - 1)
 		q->tail = 0;
+	else
+		q->tail++;
+	
 	if (q->tail == q->head)
 		q->full = 1;
+
 	q->empty = 0;
 	q->size++;
+
+
 	return;
 }
 
@@ -318,13 +362,18 @@ void queueDel (queue *q, order *out)
 {
 	*out = q->item[q->head];
 
-	q->head++;
-	if (q->head == QUEUESIZE)
+	
+	if (q->head == QUEUESIZE - 1)
 		q->head = 0;
+	else
+		q->head++;
+	
 	if (q->head == q->tail)
 		q->empty = 1;
+	
 	q->full = 0;
 	q->size--;
+	
 	return;
 }
 
@@ -406,4 +455,76 @@ void qSafeDelete(queue *q,order *arg) {
 /* Returns the the order at the head of the queue */
 order *qGetFirst(queue *q) {
 	return &(q->item[q->head]);
+}
+
+// *****************************************************************
+signal* signalInit() {
+	signal *s = malloc(sizeof(signal));
+	s->mut = malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(s->mut,NULL);
+	s->cond = malloc(sizeof(pthread_cond_t));
+	pthread_cond_init(s->cond,NULL);
+	s->trigger = 1;
+	return s;
+}
+
+// *****************************************************************
+void signalWait(signal* s) {
+	pthread_mutex_lock(s->mut);
+	s->trigger = 1;
+	while(s->trigger){
+		pthread_cond_wait(s->cond,s->mut);
+	}
+	pthread_mutex_unlock(s->mut);
+}
+
+// *****************************************************************
+void signalSend(signal* s) {
+	pthread_mutex_lock(s->mut);
+	s->trigger = 0;
+	pthread_cond_broadcast(s->cond);
+	pthread_mutex_unlock(s->mut);
+}
+
+
+// *****************************************************************
+char queueSearchDelete(queue *q,int id){
+	int tail;
+	int lasttail;
+	char found = 0;
+
+	if(q->empty == 1) return -1;
+	
+	tail = q->tail;
+
+	/* Perform the search for the order with the specified id */
+	do {
+		if(tail == 0) tail = QUEUESIZE - 1; else tail--; //decreament the tail
+		if (q->item[tail].id == id)	found = 1;
+	} while( (tail != q->head) && (found == 0));
+
+	/*
+	 * If the order was found perform the move
+	 * of all the elements one spot to the left to fill the gap
+	 */
+	if(found == 1){
+		lasttail = tail;
+		while(tail != q->tail){
+			if(tail == QUEUESIZE - 1) tail = 0; else tail++; //increment the tail
+			q->item[lasttail] = q->item[tail];
+			lasttail = tail;
+		}
+
+		if (q->tail == 0)	q->tail = QUEUESIZE - 1; else	q->tail--; // decrement the tail;
+
+		if (q->head == q->tail)
+			q->empty = 1;
+		
+		q->full = 0;
+		q->size--;
+		
+		return 0;
+	} else {
+		return -1;
+	}
 }

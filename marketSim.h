@@ -16,7 +16,6 @@ typedef struct {
 	char action, type;
 } order;
 
-
 typedef struct {
 	order item[QUEUESIZE];
 	char full, empty, shorting;
@@ -27,15 +26,32 @@ typedef struct {
 
 typedef struct {
 	char *archive;
+	pthread_mutex_t *mut;
 } rec;
 
-extern volatile int currentPriceX10;
+typedef struct {
+	pthread_mutex_t *mut;
+	pthread_cond_t *cond;
+	char trigger;
+} signal;
+
+extern rec saves;
+
+extern int currentPriceX10;
 
 extern pthread_mutex_t *price_mut;
 
-extern pthread_cond_t *price_changed;
-
 extern FILE *log_file;
+
+extern signal *slimit;
+
+extern signal *lim;
+
+signal * signalInit();
+
+void signalSend(signal *s);
+
+void signalWait(signal *s);
 
 void *Prod (void *q);
 
@@ -66,5 +82,7 @@ void qSafeDelete(queue *q,order *arg);
 void queueSort(queue *q);
 
 void queueDel (queue *q, order *ord);
+
+char queueSearchDelete(queue *q,int id);
 
 #endif

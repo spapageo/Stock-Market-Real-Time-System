@@ -1,6 +1,5 @@
 #include "marketSim.h"
 #include "limit.h"
-#include "market.h"
 
 // *********************************************************
 queue *lsq;
@@ -9,52 +8,32 @@ queue *lbq;
 // *********************************************************
 void *limitWorker(void *arg){
 	char none;
-
+	
 	while (1) {
 		none = 0;
-		pthread_mutex_lock(msq->mut);
-		pthread_mutex_lock(lbq->mut);
-		pthread_mutex_lock(price_mut);
+
+		signalWait(lim);
+
 		
-		if ((lbq->empty == 0) && (msq->empty == 0)){
- 			if(lbq->item[lbq->head].price1 >= currentPriceX10){
- 				mlPairDelete( msq, lbq );
- 				none=1;
- 			}
- 		}
-
-		pthread_mutex_unlock(price_mut);
-		pthread_mutex_unlock(lbq->mut);
-		pthread_mutex_unlock(msq->mut);
-
-		pthread_mutex_lock(mbq->mut);
-		pthread_mutex_lock(lsq->mut);
-		pthread_mutex_lock(price_mut);
-
- 		if ((mbq->empty == 0 ) && (lsq->empty == 0)){
-			if(lsq->item[lsq->head].price1 <= currentPriceX10){
- 				mlPairDelete( mbq, lsq );
- 				none=1;
- 			}
- 		}
-
-		pthread_mutex_unlock(price_mut);
-		pthread_mutex_unlock(lsq->mut);
-		pthread_mutex_unlock(mbq->mut);
-
 		pthread_mutex_lock(lsq->mut);
 		pthread_mutex_lock(lbq->mut);
 		pthread_mutex_lock(price_mut);
 		
-		if((lsq->empty == 0) && (lbq->empty == 0) && (none == 0)){
+		
+		if((lsq->empty == 0) && (lbq->empty == 0) && (none == 0)) {
 			if ((currentPriceX10 >= lsq->item[lsq->head].price1) && (currentPriceX10 <= lbq->item[lbq->head].price1)) {
 				llPairDelete(lsq,lbq);
+				none = 1;
 			}
 		}
-
+		
 		pthread_mutex_unlock(price_mut);
 		pthread_mutex_unlock(lbq->mut);
 		pthread_mutex_unlock(lsq->mut);
+
+		if (none == 1)	signalSend(slimit);
+
+		fflush(log_file);
 	}
 	return arg;
 }
@@ -88,7 +67,7 @@ void llPairDelete(queue *sl, queue *bl){
 		pthread_cond_broadcast(sl->notFull);
 		pthread_cond_broadcast(bl->notFull);
 	}
+	
 	fprintf(log_file,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(), (float)currentPriceX10/10, pvol, id1, id2);
-	fflush(log_file);
 
 }
