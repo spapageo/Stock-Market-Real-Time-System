@@ -81,7 +81,7 @@ int main() {
 	//Initialize the cancel queue
 	cq = queueInit(0);
 	
-	printf("     buffer |market sell|market buy|limit sell|limit buy |stop sell | stop buy |slimit sell|slimit buy");
+	printf("     buffer |market sell|market buy|limit sell|limit buy |stop sell | stop buy |slimit sell|slimit buy | current price");
 	printf("\n\n");
 	
 	// Create and launch all the appropriate threads
@@ -93,7 +93,7 @@ int main() {
 	pthread_create(&stop_thread, NULL, stopWorker, NULL);
 	pthread_create(&slim_thread, NULL, stoplimitWorker, NULL);
 	pthread_create(&cancel, NULL, cancelWorker, NULL);
-	
+
 	
 	// I actually do not expect them to ever terminate
 	pthread_join(prod, NULL);
@@ -111,7 +111,7 @@ void *Prod (void *arg) {
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
 		ftruncate(1,0);
-		printf("**** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d ****\n",q->size,msq->size,mbq->size,lsq->size,lbq->size,ssq->size,sbq->size,tsq->size,tbq->size);
+		printf("**** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d **** %05d ****\n",q->size,msq->size,mbq->size,lsq->size,lbq->size,ssq->size,sbq->size,tsq->size,tbq->size,currentPriceX10);
 		fflush(stdout);
 		
 		pthread_mutex_lock (q->mut);

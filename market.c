@@ -10,6 +10,22 @@ void *marketWorker(void *arg) {
 	while (1) {
 		none = 0;
 		// **********************************************************
+
+		
+		pthread_mutex_lock(mbq->mut);
+		pthread_mutex_lock(lsq->mut);
+		pthread_mutex_lock(price_mut);
+		
+		if ((mbq->empty == 0) && (lsq->empty == 0) && (lsq->item[lsq->head].price1 <= currentPriceX10)) {
+			mlPairDelete( mbq, lsq );
+			none=1;
+		}
+		
+		pthread_mutex_unlock(price_mut);
+		pthread_mutex_unlock(lsq->mut);
+		pthread_mutex_unlock(mbq->mut);
+		
+		// **********************************************************
 		pthread_mutex_lock(msq->mut);
 		pthread_mutex_lock(lbq->mut);
 		pthread_mutex_lock(price_mut);
@@ -26,20 +42,6 @@ void *marketWorker(void *arg) {
 		
 		// **********************************************************
 
-		pthread_mutex_lock(mbq->mut);
-		pthread_mutex_lock(lsq->mut);
-		pthread_mutex_lock(price_mut);
-
-		if ((mbq->empty == 0) && (lsq->empty == 0) && (lsq->item[lsq->head].price1 <= currentPriceX10)) {
-			mlPairDelete( mbq, lsq );
-			none=1;
-		}
-
-		pthread_mutex_unlock(price_mut);
-		pthread_mutex_unlock(lsq->mut);
-		pthread_mutex_unlock(mbq->mut);
-
-		// **********************************************************
 		
 		pthread_mutex_lock(msq->mut);
 		pthread_mutex_lock(mbq->mut);

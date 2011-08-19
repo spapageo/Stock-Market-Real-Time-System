@@ -46,7 +46,7 @@ void *stopWorker(void *arg){
 
 
 		
-		if(tr >= 1){
+		if(tr >= 2){
 			signalWait(slimit);
 		}
 	}
