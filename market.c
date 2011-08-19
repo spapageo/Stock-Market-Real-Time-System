@@ -3,31 +3,6 @@
 #include "market.h"
 #include "limit.h"
 
-<<<<<<< .merge_file_XM2elu
-void qSafeAdd(queue *q,order arg) {
-	pthread_mutex_lock (q->mut);
-	while (q->full) {
-		pthread_cond_wait (q->notFull, q->mut);
-	}
-	queueAdd (q, arg);
-	pthread_cond_broadcast(q->notEmpty);
-	pthread_mutex_unlock(q->mut);
-}
-
-void qSafeDelete(queue *q,order *arg) {
-
-	pthread_mutex_lock(q->mut);
-	while (q->empty){
-		pthread_cond_wait(q->notEmpty, q->mut);
-	}
-	queueDel(q, arg);
-
-	pthread_cond_broadcast(q->notFull);
-	pthread_mutex_unlock(q->mut);
-	
-}
-
-
 void *marketWorker(void *arg) {
 
 	char none;
