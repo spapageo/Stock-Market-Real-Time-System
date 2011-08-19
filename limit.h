@@ -3,13 +3,10 @@
 
 #include "marketSim.h"
 
-extern llist *lsl;
-extern llist *lbl;
+extern queue *lsq;
+extern queue *lbq;
 
-void lSafeAdd(llist *l,order ord);
-void lSafeDelete(llist *l,order *ord);
-void llPairDelete(llist *sl, llist *bl);
+void llPairDelete(queue *sl, queue *bl);
 void *limitWorker(void *arg);
-int lGetHead(llist *l,order *o);
 
 #endif

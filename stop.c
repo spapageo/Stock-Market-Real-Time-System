@@ -1,35 +1,55 @@
 #include "marketSim.h"
 #include "stop.h"
-#include "limit.h"
 #include "market.h"
 
-llist *ssl;
-llist *sbl;
+queue *ssq;
+queue *sbq;
 
 void *stopWorker(void *arg){
-	int switch1, switch2;
-	order o1,o2;
-	o1.price1 = 1000;
-	o2.price1 = 1000;
+	order o1;
+	char tr = 0;
 	while(1){
-		switch1 = lGetHead(ssl,&o1);
-		switch2 = lGetHead(sbl,&o2);
+		tr++;
+		
+		pthread_mutex_lock(price_mut);
+		pthread_mutex_lock(ssq->mut);
+		
+		if(ssq->empty == 0 && currentPriceX10 <= ssq->item[ssq->head].price1 ){
+			pthread_mutex_unlock(ssq->mut);
+			pthread_mutex_unlock(price_mut);
 
-		if(switch1 == 1){
-			if( currentPriceX10 <= o1.price1 ){
-				lSafeDelete(ssl,&o1);
-				o1.type = 'M';
-				qSafeAdd(msq,o1);
-			}
+			qSafeDelete(ssq,&o1);
+			o1.type = 'M';
+			qSafeAdd(msq,o1);
+			tr = 0;
+		} else{
+			pthread_mutex_unlock(ssq->mut);
+			pthread_mutex_unlock(price_mut);
 		}
 
-		if(switch2 == 1){
-			if( currentPriceX10 >= o2.price1 ){
-				lSafeDelete(sbl,&o2);
-				o2.type = 'M';
-				qSafeAdd(mbq,o2);
-			}
+		pthread_mutex_lock(price_mut);
+		pthread_mutex_lock(sbq->mut);
+
+		if(sbq->empty == 0 && currentPriceX10 >= sbq->item[sbq->head].price1 ){
+			pthread_mutex_unlock(sbq->mut);
+			pthread_mutex_unlock(price_mut);
+
+			qSafeDelete(sbq,&o1);
+			o1.type = 'M';
+			qSafeAdd(mbq,o1);
+
+			tr = 0;
+		} else {
+			pthread_mutex_unlock(sbq->mut);
+			pthread_mutex_unlock(price_mut);
+		}
+
+
+		
+		if(tr >= 2){
+			signalWait(slimit);
 		}
 	}
-	return NULL;
+	return arg;
 }
+

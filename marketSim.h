@@ -10,52 +10,52 @@
 
 #define DESC 100
 
-#define ABV 111
-
-#define BLW 110
-
 typedef struct {
-	long int id, oldid, timestamp;
-	short int vol;
-	short int price1, price2;
+	long int timestamp;
+	int vol, id, oldid, price1, price2;
 	char action, type;
 } order;
 
-
-typedef struct {
-	order ord;
-	void *next;
-} order_t;
-
-typedef struct {
-	order_t *HEAD;
-	int size, MAX_SIZE;
-	char shorting, full, empty;
-	pthread_mutex_t *mut;
-	pthread_cond_t *notFull, *notEmpty, *notAbove, *notBelow;
-} llist;
-
 typedef struct {
 	order item[QUEUESIZE];
-	long head, tail, size;
-	int full, empty;
+	char full, empty, shorting;
+	int head, tail, size;
 	pthread_mutex_t *mut;
 	pthread_cond_t *notFull, *notEmpty;
 } queue;
+
+typedef struct {
+	char *archive;
+	pthread_mutex_t *mut;
+} rec;
+
+typedef struct {
+	pthread_mutex_t *mut;
+	pthread_cond_t *cond;
+	char trigger;
+} signal;
+
+extern rec saves;
 
 extern int currentPriceX10;
 
 extern pthread_mutex_t *price_mut;
 
-extern pthread_cond_t *cur_price_changed;
-
 extern FILE *log_file;
+
+extern signal *slimit;
+
+extern signal *lim;
+
+signal * signalInit();
+
+void signalSend(signal *s);
+
+void signalWait(signal *s);
 
 void *Prod (void *q);
 
 void *Cons (void *q);
-
-void inputConsumer(queue *q);
 
 order makeOrder();
 
@@ -63,20 +63,27 @@ long getTimestamp();
 
 void dispOrder(order ord);
 
-queue *queueInit (void);
+queue *queueInit (int shorting);
 
 void queueDelete (queue *q);
 
 void queueAdd (queue *q, order ord);
 
+order *qGetFirst(queue *q);
+
+void qSortAdd (queue *q,order ord);
+
+void qSafeSortAdd(queue *q,order ord);
+
+void qSafeAdd(queue *q,order arg);
+
+void qSafeDelete(queue *q,order *arg);
+
+void queueSort(queue *q);
+
 void queueDel (queue *q, order *ord);
 
-void llistAdd (llist *l, order ord, order_t *after);
-
-void llistDel ( llist *l, order* ord);
-
-order_t *llistInsertHere( llist *l, order ord);
-
-llist *llistInit(int shorting);
+char queueSearchDelete(queue *q,int id);
 
 #endif
+

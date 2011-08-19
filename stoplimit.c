@@ -2,36 +2,57 @@
 #include "stoplimit.h"
 #include "limit.h"
 
-llist *tsl;
-llist *tbl;
+queue *tsq;
+queue *tbq;
 
 
 void *stoplimitWorker(void *arg){
-	int switch1, switch2;
-	order o1,o2;
-	o1.price1 = 1000;
-	o2.price1 = 1000;
+	order o1;
+	char tr = 0;
+	
 	while(1){
-		switch1 = lGetHead(tsl,&o1);
-		switch2 = lGetHead(tbl,&o2);
-		
-		if(switch1 == 1){
-			if( currentPriceX10 <= o1.price1 ){
-				lSafeDelete(tsl,&o1);
-				o1.type = 'L';
-				o1.price1 = o1.price2;
-				lSafeAdd(lsl,o1);
-			}
+		tr++;
+
+		pthread_mutex_lock(tsq->mut);
+		pthread_mutex_lock(price_mut);
+
+		if((tsq->empty == 0) && (currentPriceX10 <= tsq->item[tsq->head].price1) ){
+			pthread_mutex_unlock(price_mut);
+			pthread_mutex_unlock(tsq->mut);
+
+			qSafeDelete(tsq,&o1);
+			o1.type = 'L';
+			o1.price1 = o1.price2;
+			qSafeSortAdd(lsq,o1);
+			tr = 0;
+
+		} else {
+			pthread_mutex_unlock(price_mut);
+			pthread_mutex_unlock(tsq->mut);
 		}
-		
-		if(switch2 == 1){
-			if( currentPriceX10 >= o2.price1 ){
-				lSafeDelete(tbl,&o2);
-				o2.type = 'L';
-				o2.price1 = o2.price2;
-				lSafeAdd(lbl,o2);
-			}
+
+		pthread_mutex_lock(tbq->mut);
+		pthread_mutex_lock(price_mut);
+
+
+		if((tbq->empty == 0) && (currentPriceX10 >= tbq->item[tbq->head].price1) ){
+			pthread_mutex_unlock(price_mut);
+			pthread_mutex_unlock(tbq->mut);
+			qSafeDelete(tbq,&o1);
+			o1.type = 'L';
+			o1.price1 = o1.price2;
+			qSafeSortAdd(lbq,o1);
+			tr = 0;
+
+		} else {
+			pthread_mutex_unlock(price_mut);
+			pthread_mutex_unlock(tbq->mut);
+		}
+
+		if(tr >= 2){
+			signalWait(slimit);
 		}
 	}
-	return NULL;
+	return arg;
 }
+
