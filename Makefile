@@ -1,6 +1,3 @@
-#CC=gcc
-
-
 all: marketSim
 
 

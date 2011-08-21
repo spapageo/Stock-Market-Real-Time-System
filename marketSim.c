@@ -1,3 +1,24 @@
+/**
+ * 
+ * Copyright (c) 2011 Spyridwn Papageorgiou
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *
+ * *The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ **/
+
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
@@ -45,46 +66,51 @@ int main() {
 	slimit = signalInit();
 	lim = signalInit();
 	
-	//open the log file for writing
+	/* Open the log file for writing */
 	log_file = fopen("logfile.txt","w+");
 
+	/*
+	 * Initialize the array that we will use in order to log the type of each
+	 * of the order that are received by the system.
+	 * It is used only to by the cancel thread to find where each order has gone.
+	 */
 	saves.mut = malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(saves.mut,NULL);
 	saves.archive = calloc(INT_MAX,sizeof(char));
-	if(saves.archive == NULL) exit(0);
+	if(saves.archive == NULL) perror( "Not enough memory" );
 	
-	// start the time for timestamps
+	/* Start the time for timestamps */
 	gettimeofday (&startwtime, NULL);
 	
-	//Create all the thread variables
+	/* Create all the thread variables */
 	pthread_t prod, cons, cons2, market, lim_thread, stop_thread, slim_thread, cancel;
 	
-	// Initialize the incoming order queue
+	/* Initialize the incoming order queue */
 	queue *q = queueInit(0);
 	
-	// Initialize the buy and sell market queues.
+	/* Initialize the buy and sell market queues. */
 	msq = queueInit(0);
 	mbq = queueInit(0);
 
-	// Initialize the buy and sell limit order queues
+	/* Initialize the buy and sell limit order queues */
 	lsq = queueInit(ASC);
 	lbq = queueInit(DESC);
 	
-	// Initialize the buy and sell stop order queues
+	/* Initialize the buy and sell stop order queues */
 	ssq = queueInit(ASC);
 	sbq = queueInit(DESC);
 	
-	// Initialize the buy and sell stop limit order queues
+	/* Initialize the buy and sell stop limit order queues */
 	tsq = queueInit(ASC);
 	tbq = queueInit(DESC);
 
-	//Initialize the cancel queue
+	/* Initialize the cancel queue */
 	cq = queueInit(0);
 	
 	printf("     buffer |market sell|market buy|limit sell|limit buy |stop sell | stop buy |slimit sell|slimit buy | current price");
 	printf("\n\n");
 	
-	// Create and launch all the appropriate threads
+	/* Create and launch all the appropriate threads */
 	pthread_create(&prod, NULL, Prod, q);
 	pthread_create(&cons, NULL, Cons, q);
 	pthread_create(&cons2, NULL, Cons, q);
@@ -95,18 +121,21 @@ int main() {
 	pthread_create(&cancel, NULL, cancelWorker, NULL);
 
 	
-	// I actually do not expect them to ever terminate
+	/* Join the producer thread. I actually do not expect it to ever terminate */
 	pthread_join(prod, NULL);
 	
 	
 	pthread_exit(NULL);
 }
 
-// ****************************************************************
+
+/*
+ * The producer thread that feels the order buffer with orders.
+ * They are left there until a consumer processes them.
+ */
 void *Prod (void *arg) {
 	queue *q = (queue *) arg;
 	while (1) {
-		
 		
 		fputs("\033[A\033[2K",stdout);
 		rewind(stdout);
@@ -127,7 +156,10 @@ void *Prod (void *arg) {
 	return NULL;
 }
 
-// ****************************************************************
+/*
+ * Removes orders from the order buffer. And process them according to their type by
+ * adding them to the correct queue for transaction.
+ */
 void *Cons (void *arg) {
 	queue *q = (queue *) arg;
 	order ord;
@@ -145,10 +177,10 @@ void *Cons (void *arg) {
 		pthread_mutex_unlock (q->mut);
 
 
-		
-		// YOUR CODE IS CALLED FROM HERE
-		// Process that order!
-		
+		/*
+		 * Here we save the type of the order processed at thje archive so that later if we have to,
+		 * we can cancel them. Afterwards we 
+		 */
 		pthread_mutex_lock(saves.mut);
 		if (ord.type == 'M') {
 			if(ord.action == 'S'){
@@ -202,9 +234,8 @@ void *Cons (void *arg) {
 	return NULL;
 }
 
-// ****************************************************************
+/* Randomly generate an order */
 order makeOrder() {
-	//pthread_mutex_lock(price_mut);
 	static int count = 0;
 	int magnitude = 10;
 	int waitmsec;
@@ -258,11 +289,11 @@ order makeOrder() {
 		ord.price1 = 0;
 		ord.price2 = 0;
 	}
-	//pthread_mutex_unlock(price_mut);
+
 	return (ord);
 }
 
-// ****************************************************************
+/* Retarns the time since the start of the application */
 long getTimestamp() {
 
 	gettimeofday(&endwtime, NULL);
@@ -271,7 +302,7 @@ long getTimestamp() {
 					+ endwtime.tv_sec - startwtime.tv_sec)*1000);
 }
 
-// ****************************************************************
+/* Displays the order */
 void dispOrder(order ord) {
 
 	printf("%08d ", ord.id);
@@ -303,7 +334,7 @@ void dispOrder(order ord) {
 	printf("\n");
 }
 
-// ****************************************************************
+/* Initialize a new queue with the given shorting in its ellements and return a pointer to it */
 queue *queueInit (int shorting)
 {
 	queue *q;
@@ -327,7 +358,7 @@ queue *queueInit (int shorting)
 	return (q);
 }
 
-// ****************************************************************
+/* Deletes the supplied queue */
 void queueDelete (queue *q) {
 	pthread_mutex_destroy (q->mut);
 	free (q->mut);
@@ -338,7 +369,7 @@ void queueDelete (queue *q) {
 	free (q);
 }
 
-// ****************************************************************
+/* Add the supplied order to the tail of the queue */
 void queueAdd (queue *q, order in)
 {
 	q->item[q->tail] = in;
@@ -355,7 +386,7 @@ void queueAdd (queue *q, order in)
 	return;
 }
 
-// ****************************************************************
+/* Deletes the order from the head of the queue. */
 void queueDel (queue *q, order *out)
 {
 	*out = q->item[q->head];
@@ -375,7 +406,7 @@ void queueDel (queue *q, order *out)
 	return;
 }
 
-// *****************************************************************
+/* Adds the supplied order to the tail of the queue and then sorts it */
 void qSortAdd (queue *q,order ord){
 	
 	queueAdd(q,ord);
@@ -383,7 +414,7 @@ void qSortAdd (queue *q,order ord){
 
 }
 
-// *****************************************************************
+/* Sorts the last element of the supplied queue */
 void queueSort(queue *q){
 	order unsortdOrder,tmp;
 	char done = 0;
@@ -404,7 +435,7 @@ void queueSort(queue *q){
 	}	
 }
 
-// *****************************************************************
+/* The same as sortAdd but threadsafe */
 void qSafeSortAdd(queue *l,order ord) {
 	/* Lock the list mutex */
 	pthread_mutex_lock(l->mut);
@@ -424,7 +455,7 @@ void qSafeSortAdd(queue *l,order ord) {
 	pthread_mutex_unlock(l->mut);
 }
 
-// *****************************************************************
+/* The same as queueAdd but thread safe */
 void qSafeAdd(queue *q,order arg) {
 	pthread_mutex_lock (q->mut);
 	while (q->full) {
@@ -435,7 +466,7 @@ void qSafeAdd(queue *q,order arg) {
 	pthread_mutex_unlock(q->mut);
 }
 
-// *****************************************************************
+/* The same as queueDel but thread safe */
 void qSafeDelete(queue *q,order *arg) {
 	
 	pthread_mutex_lock(q->mut);
@@ -449,13 +480,12 @@ void qSafeDelete(queue *q,order *arg) {
 	
 }
 
-// *****************************************************************
 /* Returns the the order at the head of the queue */
 order *qGetFirst(queue *q) {
 	return &(q->item[q->head]);
 }
 
-// *****************************************************************
+/* Creates and initializes a new signal struct and return a pointer to it*/
 signal* signalInit() {
 	signal *s = malloc(sizeof(signal));
 	s->mut = malloc(sizeof(pthread_mutex_t));
@@ -466,7 +496,7 @@ signal* signalInit() {
 	return s;
 }
 
-// *****************************************************************
+/* Waits until the given signal is emmited elsewhere in your program */
 void signalWait(signal* s) {
 	pthread_mutex_lock(s->mut);
 	s->trigger = 1;
@@ -476,7 +506,7 @@ void signalWait(signal* s) {
 	pthread_mutex_unlock(s->mut);
 }
 
-// *****************************************************************
+/* Broadcasts the supplied signal to the rest of the application */
 void signalSend(signal* s) {
 	pthread_mutex_lock(s->mut);
 	s->trigger = 0;
@@ -485,7 +515,7 @@ void signalSend(signal* s) {
 }
 
 
-// *****************************************************************
+/* Searchs the given queue for the supplied order id, and if it finds it it deletes it from the queue*/
 char queueSearchDelete(queue *q,int id){
 	int tail;
 	int lasttail;
