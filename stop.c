@@ -48,7 +48,9 @@ void *stopWorker(void *arg){
 
 			qSafeDelete(ssq,&o1);
 			o1.type = 'M';
+			o1.timestamp = getTimestamp();
 			qSafeAdd(msq,o1);
+			
 			tr = 0;
 		} else{
 			pthread_mutex_unlock(ssq->mut);
@@ -64,6 +66,7 @@ void *stopWorker(void *arg){
 
 			qSafeDelete(sbq,&o1);
 			o1.type = 'M';
+			o1.timestamp = getTimestamp();
 			qSafeAdd(mbq,o1);
 
 			tr = 0;

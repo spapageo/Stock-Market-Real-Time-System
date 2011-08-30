@@ -50,6 +50,7 @@ void *stoplimitWorker(void *arg){
 			qSafeDelete(tsq,&o1);
 			o1.type = 'L';
 			o1.price1 = o1.price2;
+			o1.timestamp = getTimestamp();
 			qSafeSortAdd(lsq,o1);
 			tr = 0;
 
@@ -68,6 +69,7 @@ void *stoplimitWorker(void *arg){
 			qSafeDelete(tbq,&o1);
 			o1.type = 'L';
 			o1.price1 = o1.price2;
+			o1.timestamp = getTimestamp();
 			qSafeSortAdd(lbq,o1);
 			tr = 0;
 
