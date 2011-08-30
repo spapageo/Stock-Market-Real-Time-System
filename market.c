@@ -29,10 +29,10 @@
  */
 void *marketWorker(void *arg) {
 
-	char none;
+	char none,s;
 	while (1) {
 		none = 0;
-		
+		s = 0;
 		/*
 		 * Here we check if the requirements to perform a market buy - limit sell transaction are met.
 		 * If so we perform the transaction.
@@ -44,11 +44,19 @@ void *marketWorker(void *arg) {
 		if ((mbq->empty == 0) && (lsq->empty == 0) && (lsq->item[lsq->head].price1 <= currentPriceX10)) {
 			mlPairDelete( mbq, lsq , log_file);
 			none=1;
+			s=1;
 		}
 		
 		pthread_mutex_unlock(price_mut);
 		pthread_mutex_unlock(lsq->mut);
 		pthread_mutex_unlock(mbq->mut);
+		
+		/*
+		 * If a transaction has occured, we wake up the stop and stoplimit threads
+		 * to recheck the value of the current price
+		 */
+		if(s == 1)	signalSend(slimit);
+		s = 0;
 		
 		/*
 		 * Here we check if the requirements to perform a market sell - limit buy transaction are met.
@@ -62,12 +70,19 @@ void *marketWorker(void *arg) {
 		if((msq->empty == 0) && (lbq->empty == 0) && (lbq->item[lbq->head].price1 >= currentPriceX10)){
 			mlPairDelete( msq, lbq , log_file);
 			none=1;
+			s=1;
 		}
 		
 		pthread_mutex_unlock(price_mut);
 		pthread_mutex_unlock(lbq->mut);
 		pthread_mutex_unlock(msq->mut);
 
+		/*
+		 * If a transaction has occured, we wake up the stop and stoplimit threads
+		 * to recheck the value of the current price
+		 */
+		if(s == 1)	signalSend(slimit);
+		
 		
 		/*
 		 * Here we check if none of the above trasactions have occured. If not
@@ -83,12 +98,6 @@ void *marketWorker(void *arg) {
 		
 		pthread_mutex_unlock(mbq->mut);
 		pthread_mutex_unlock(msq->mut);
-
-		/*
-		 * If a transaction has occured, we wake up the stop and stoplimit threads
-		 * to recheck the value of the current price
-		 */
-		if(none != 0)	signalSend(slimit);
 
 		/*
 		 * If no no market - limit transaction has happened we signal the limit thread to try
@@ -146,36 +155,36 @@ void mmPairDelete( queue * sq, queue * bq, FILE * lf ) {
  */
 void mlPairDelete( queue*  m, queue*  l, FILE* lf ){
 
-		int vol1 = m->item[m->head].vol, vol2 = l->item[l->head].vol;
-		int pvol = 0;
-		int id1 = m->item[m->head].id, id2 = l->item[l->head].id;
-		order ord;
-		
-		/* Checks which order has the larger volume */
-		if (vol1 < vol2) {
-			vol2 = vol2 - vol1;
-			pvol = vol1;
-			queueDel(m,&ord);
-			l->item[l->head].vol = vol2;
-			pthread_cond_broadcast(m->notFull);
-			currentPriceX10 = l->item[l->head].price1;
-		} else if (vol1 > vol2) {
-			vol1 = vol1 - vol2;
-			pvol = vol2;
-			queueDel(l,&ord);
-			qGetFirst(m)->vol = vol1;
-			pthread_cond_broadcast(l->notFull);
-			currentPriceX10 = ord.price1;
-		} else {
-			pvol = vol1;
-			queueDel(m,&ord);
-			queueDel(l,&ord);
-			pthread_cond_broadcast(m->notFull);
-			pthread_cond_broadcast(l->notFull);
-			currentPriceX10 = ord.price1;
-		}
+	int vol1 = m->item[m->head].vol, vol2 = l->item[l->head].vol;
+	int pvol = 0;
+	int id1 = m->item[m->head].id, id2 = l->item[l->head].id;
+	order ord;
+	
+	/* Checks which order has the larger volume */
+	if (vol1 < vol2) {
+		vol2 = vol2 - vol1;
+		pvol = vol1;
+		queueDel(m,&ord);
+		l->item[l->head].vol = vol2;
+		pthread_cond_broadcast(m->notFull);
+		currentPriceX10 = l->item[l->head].price1;
+	} else if (vol1 > vol2) {
+		vol1 = vol1 - vol2;
+		pvol = vol2;
+		queueDel(l,&ord);
+		qGetFirst(m)->vol = vol1;
+		pthread_cond_broadcast(l->notFull);
+		currentPriceX10 = ord.price1;
+	} else {
+		pvol = vol1;
+		queueDel(m,&ord);
+		queueDel(l,&ord);
+		pthread_cond_broadcast(m->notFull);
+		pthread_cond_broadcast(l->notFull);
+		currentPriceX10 = ord.price1;
+	}
 
-		/* Logs the transaction to the file */
-		fprintf(lf,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, pvol, id1, id2);
+	/* Logs the transaction to the file */
+	fprintf(lf,"%08ld	%08ld	%5.1f	%05d	%08d	%08d\n", ord.timestamp, getTimestamp(),(float) currentPriceX10/10, pvol, id1, id2);
 
 }
